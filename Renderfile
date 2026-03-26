@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: gestion-medicale-pro
+    env: php
+    buildCommand: ./build.sh
+    startCommand: php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
