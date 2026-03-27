@@ -12,9 +12,9 @@ use App\Http\Controllers\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// 1. PUBLIC
+// 1. PUBLIC : Redirection automatique vers le login
 Route::get('/', function () {
-    return Inertia::render('Welcome');
+    return redirect()->route('login');
 });
 
 // 2. ROUTES PROTÉGÉES (Connexion obligatoire)
