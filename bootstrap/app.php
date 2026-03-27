@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // C'EST ICI QUE TU AJOUTES L'ALIAS
+        // Configuration des Proxies pour Railway
+        $middleware->trustProxies(at: '*');
+
+        // Tes alias existants
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'clinic.access' => \App\Http\Middleware\EnsureUserBelongsToClinic::class, 
