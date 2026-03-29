@@ -16,6 +16,7 @@ class ClinicController extends Controller
      */
     public function index(Request $request)
     {
+        return "Le contrôleur ClinicController est bien appelé !";
         $user = Auth::user();
         $search = $request->input('search');
 
