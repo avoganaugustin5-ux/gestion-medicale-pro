@@ -11,19 +11,13 @@ use Inertia\Inertia;
 
 class ClinicController extends Controller
 {
-    /**
-     * Affiche le Dashboard dynamique selon le rôle de l'utilisateur.
-     */
     public function index(Request $request)
     {
-        return "Le contrôleur ClinicController est bien appelé !";
         $user = Auth::user();
         $search = $request->input('search');
-
-        // --- STRATÉGIE PRO : Normalisation du rôle pour éviter les conflits de casse ---
         $role = strtolower($user->role ?? 'guest');
 
-        // 1. Récupération des cliniques (Recherche fluide pour Admin et Patient)
+        // 1. Récupération des cliniques
         $clinics = Clinic::query()
             ->when($search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
@@ -31,12 +25,17 @@ class ClinicController extends Controller
             })
             ->get();
 
-        // 2. Initialisation sécurisée de la collection des rendez-vous
         $appointments = collect();
 
-        // 3. Logique de récupération des données par rôle
-        if ($role === 'secretaire') {
-            // La secrétaire voit les RDV en attente de SA clinique
+        // 2. Logique par rôle
+        if ($role === 'admin') {
+            // L'admin voit tout le monde
+            $appointments = Appointment::with(['patient.user', 'doctor', 'clinic', 'service'])
+                ->latest()
+                ->take(10)
+                ->get();
+
+        } elseif ($role === 'secretaire') {
             if ($user->clinic_id) {
                 $appointments = Appointment::with(['patient.user', 'doctor', 'service'])
                     ->where('clinic_id', $user->clinic_id)
@@ -46,7 +45,6 @@ class ClinicController extends Controller
             }
 
         } elseif ($role === 'medecin') {
-            // Le médecin voit ses propres RDV confirmés
             $appointments = Appointment::with(['patient.user', 'service', 'clinic'])
                 ->where('doctor_id', $user->id)
                 ->where('status', 'confirmed')
@@ -54,11 +52,8 @@ class ClinicController extends Controller
                 ->get();
 
         } elseif ($role === 'patient') {
-            // On récupère le profil Patient lié à l'ID de l'utilisateur
             $patientProfile = Patient::where('user_id', $user->id)->first();
-
             if ($patientProfile) {
-                // Récupération des rendez-vous du patient via son ID de profil
                 $appointments = Appointment::with(['doctor', 'clinic', 'service'])
                     ->where('patient_id', $patientProfile->id)
                     ->latest()
@@ -73,17 +68,11 @@ class ClinicController extends Controller
         ]);
     }
 
-    /**
-     * Formulaire de création de clinique (Admin).
-     */
     public function create()
     {
         return Inertia::render('Clinics/Create');
     }
 
-    /**
-     * Enregistre une nouvelle clinique.
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -91,27 +80,22 @@ class ClinicController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-        // Création via la relation si définie, sinon via Model direct
         Clinic::create([
             'name' => $request->name,
             'description' => $request->description,
-            'user_id' => Auth::id(), // Si tu suis qui a créé la clinique
+            'user_id' => Auth::id(), 
         ]);
 
         return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
     }
 
-    /**
-     * Détails d'une clinique spécifique.
-     */
     public function show(Clinic $clinic)
     {
         $user = Auth::user();
         $role = strtolower($user->role ?? '');
 
-        // Vérification des droits (Admin voit tout, les autres voient leur clinique)
         if ($role !== 'admin' && $user->clinic_id !== $clinic->id && $role !== 'patient') {
-            abort(403, 'Accès non autorisé à cette clinique.');
+            abort(403, 'Accès non autorisé.');
         }
 
         return Inertia::render('Clinics/Show', [
@@ -119,8 +103,9 @@ class ClinicController extends Controller
             'stats' => [
                 'patients_count' => $clinic->patients()->count(),
                 'doctors_count' => $clinic->doctors()->count(),
+                // Vérifie si c'est 'date_rdv' ou 'appointment_date' dans ta DB
                 'appointments_today' => $clinic->appointments()
-                    ->whereDate('date_rdv', now()->toDateString())
+                    ->whereDate('appointment_date', now()->toDateString())
                     ->count(),
             ]
         ]);
