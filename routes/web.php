@@ -9,7 +9,6 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SecretaryController;
 use App\Http\Controllers\PatientAppointmentController;
-use App\Http\Controllers\DashboardController; // <--- AJOUTÉ : Import du nouveau contrôleur
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,7 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // --- MODIFICATION PRO : Utilisation du DashboardController ---
     // C'est ici que la magie opère pour envoyer les bonnes données à ton Dashboard.vue
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
     // --- SECTION ADMINISTRATEUR UNIQUEMENT ---
     Route::middleware(['role:admin'])->group(function () {
