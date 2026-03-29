@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, usePage, router } from '@inertiajs/vue3';
 import { computed, watch, ref } from 'vue';
-import debounce from 'lodash/debounce'; // Importation de lodash pour la recherche fluide
+import debounce from 'lodash/debounce';
 
 import PatientDashboard from './DashboardPartials/PatientDashboard.vue';
 import SecretaryDashboard from './DashboardPartials/SecretaryDashboard.vue';
@@ -11,14 +11,14 @@ import DoctorDashboard from './DashboardPartials/DoctorDashboard.vue';
 const props = defineProps({
     clinics: Array,
     appointments: Array,
-    filters: Object // Reçu du contrôleur pour garder l'état de recherche
+    filters: Object
 });
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
-// État de la recherche initialisé avec la valeur actuelle du filtre
-const search = ref(props.filters?.search || '');
+// --- MODIFICATION PRO : Normalisation du rôle ---
+const userRole = computed(() => user.value?.role?.toLowerCase() || 'guest');
 
 const roleLabel = computed(() => {
     const roles = { 
@@ -27,10 +27,12 @@ const roleLabel = computed(() => {
         'secretaire': 'Secrétaire', 
         'patient': 'Patient' 
     };
-    return roles[user.value?.role] || 'Utilisateur';
+    return roles[userRole.value] || 'Utilisateur';
 });
+// ------------------------------------------------
 
-// Logique de recherche réactive (Debounce de 300ms)
+const search = ref(props.filters?.search || '');
+
 watch(search, debounce((value) => {
     router.get(route('dashboard'), { search: value }, { 
         preserveState: true, 
@@ -38,7 +40,6 @@ watch(search, debounce((value) => {
     });
 }, 300));
 
-// Auto-suppression des messages flash après 5 secondes
 watch(() => page.props.flash, (newFlash) => {
     if (newFlash?.message || newFlash?.success) {
         setTimeout(() => {
@@ -62,10 +63,10 @@ watch(() => page.props.flash, (newFlash) => {
                 </h2>
                 
                 <div class="flex gap-2">
-                    <Link v-if="user?.role === 'admin'" :href="route('clinics.create')" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 transition">
+                    <Link v-if="userRole === 'admin'" :href="route('clinics.create')" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 transition">
                         + Ajouter une clinique
                     </Link>
-                    <Link v-if="user?.role === 'patient'" :href="route('appointments.create')" class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 transition">
+                    <Link v-if="userRole === 'patient'" :href="route('appointments.create')" class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 transition">
                         Prendre un rendez-vous
                     </Link>
                 </div>
@@ -90,7 +91,7 @@ watch(() => page.props.flash, (newFlash) => {
                     <div class="p-6 text-gray-900 flex items-center justify-between">
                         <div>
                             <h3 class="text-lg font-bold uppercase tracking-tight text-blue-900">Bienvenue, {{ user?.name }} !</h3>
-                            <p class="text-xs text-gray-500 font-medium italic mt-1 italic">
+                            <p class="text-xs text-gray-500 font-medium italic mt-1">
                                 Accès sécurisé au portail de santé de Thomas Sankara University.
                             </p>
                         </div>
@@ -102,19 +103,19 @@ watch(() => page.props.flash, (newFlash) => {
                     </div>
                 </div>
 
-                <div v-if="user?.role === 'patient'" class="mb-10">
+                <div v-if="userRole === 'patient'" class="mb-10">
                     <PatientDashboard :appointments="appointments" />
                 </div>
 
-                <div v-if="user?.role === 'secretaire'" class="mb-10">
+                <div v-if="userRole === 'secretaire'" class="mb-10">
                     <SecretaryDashboard :appointments="appointments" />
                 </div>
 
-                <div v-if="user?.role === 'medecin'" class="mb-10">
+                <div v-if="userRole === 'medecin'" class="mb-10">
                     <DoctorDashboard :appointments="appointments" />
                 </div>
 
-                <div v-if="user?.role === 'admin' || user?.role === 'patient'" class="mt-12">
+                <div v-if="userRole === 'admin' || userRole === 'patient'" class="mt-12">
                     <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                         <h4 class="text-sm font-black text-gray-400 uppercase tracking-widest px-1">
                             🏥 Répertoire des Cliniques
@@ -157,12 +158,3 @@ watch(() => page.props.flash, (newFlash) => {
         </div>
     </AuthenticatedLayout>
 </template>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-</style>

@@ -5,9 +5,15 @@ const props = defineProps({
     appointments: Array
 });
 
+// Formatage de la date en français
 const formatDate = (dateString) => {
+    if (!dateString) return 'Date non définie';
     return new Date(dateString).toLocaleDateString('fr-FR', {
-        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short', 
+        hour: '2-digit', 
+        minute: '2-digit'
     });
 };
 </script>
@@ -33,13 +39,18 @@ const formatDate = (dateString) => {
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-sm font-black text-gray-900">{{ formatDate(app.date_rdv) }}</p>
+                        <p class="text-sm font-black text-gray-900">{{ formatDate(app.appointment_date) }}</p>
+                        
                         <div class="flex items-center text-xs text-gray-600">
-                            <span class="font-semibold">Docteur :</span>&nbsp;Dr. {{ app.doctor?.last_name || 'Non assigné' }}
+                            <span class="font-semibold">Docteur :</span>&nbsp;
+                            {{ app.doctor?.user?.name || 'Dr. ' + (app.doctor?.last_name || 'Non assigné') }}
                         </div>
+
                         <div class="flex items-center text-xs text-blue-700 font-medium">
-                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/></svg>
-                            {{ app.clinic?.name }}
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"/>
+                            </svg>
+                            {{ app.clinic?.name || 'Établissement UTS' }}
                         </div>
                     </div>
                 </div>
@@ -47,7 +58,9 @@ const formatDate = (dateString) => {
 
             <div v-else class="bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center shadow-sm">
                 <p class="text-gray-500 text-sm">Aucun rendez-vous à venir.</p>
-                <Link :href="route('appointments.create')" class="text-blue-600 text-xs font-bold hover:text-blue-800 mt-3 inline-block bg-blue-50 px-4 py-2 rounded-full transition">Prendre rendez-vous maintenant</Link>
+                <Link :href="route('appointments.create')" class="text-blue-600 text-xs font-bold hover:text-blue-800 mt-3 inline-block bg-blue-50 px-4 py-2 rounded-full transition">
+                    Prendre rendez-vous maintenant
+                </Link>
             </div>
         </section>
     </div>

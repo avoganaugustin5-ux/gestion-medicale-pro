@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SecretaryController;
 use App\Http\Controllers\PatientAppointmentController;
+use App\Http\Controllers\DashboardController; // <--- AJOUTÉ : Import du nouveau contrôleur
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -20,8 +21,9 @@ Route::get('/', function () {
 // 2. ROUTES PROTÉGÉES (Connexion obligatoire)
 Route::middleware(['auth', 'verified'])->group(function () {
     
-    // Dashboard global géré par le ClinicController
-    Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
+    // --- MODIFICATION PRO : Utilisation du DashboardController ---
+    // C'est ici que la magie opère pour envoyer les bonnes données à ton Dashboard.vue
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // --- SECTION ADMINISTRATEUR UNIQUEMENT ---
     Route::middleware(['role:admin'])->group(function () {
@@ -39,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // --- SECTION MÉDECIN & SECRÉTAIRE ---
     Route::middleware(['role:medecin,secretaire,admin'])->group(function () {
         Route::prefix('clinics/{clinic}')->group(function () {
+            // Note: On garde show ici pour voir les détails d'une clinique spécifique
             Route::get('/', [ClinicController::class, 'show'])->name('clinics.show');
             Route::get('/edit', [ClinicController::class, 'edit'])->name('clinics.edit');
             Route::patch('/', [ClinicController::class, 'update'])->name('clinics.update');
