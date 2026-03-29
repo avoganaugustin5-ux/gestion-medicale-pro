@@ -10,6 +10,7 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SecretaryController;
 use App\Http\Controllers\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan; // <-- Import nécessaire pour la route de secours
 use Inertia\Inertia;
 
 // 1. PUBLIC : Redirection automatique vers le login
@@ -20,19 +21,17 @@ Route::get('/', function () {
 // 2. ROUTES PROTÉGÉES (Connexion obligatoire)
 Route::middleware(['auth', 'verified'])->group(function () {
     
-    // Dashboard global géré par le ClinicController (pour distribuer les données selon le rôle)
+    // Dashboard global géré par le ClinicController
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
-    // --- SECTION ADMINISTRATEUR UNIQUEMENT ---
+    // --- SECTION ADMINISTRATEUR ---
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/clinics/create', [ClinicController::class, 'create'])->name('clinics.create');
         Route::post('/clinics', [ClinicController::class, 'store'])->name('clinics.store');
         
-        // Administration des utilisateurs
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
         Route::patch('/admin/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.updateRole');
         
-        // Services globaux
         Route::resource('services', ServiceController::class);
     });
 
@@ -51,11 +50,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
         });
 
-        // ACTION SECRÉTAIRE : Validation des rendez-vous (Celle appelée par ton composant Vue)
         Route::put('/appointments/{appointment}/status', [SecretaryController::class, 'updateStatus'])
             ->name('appointments.updateStatus');
         
-        // Autres validations techniques si nécessaire
         Route::patch('/appointments/{appointment}/validate', [AppointmentController::class, 'validateStatus'])
             ->name('appointments.validate');
     });
@@ -66,10 +63,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/appointments', [PatientAppointmentController::class, 'store'])->name('appointments.store');
     });
 
-    // --- SECTION PROFIL (Accessible à TOUS) ---
+    // --- SECTION PROFIL ---
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// --- ROUTE DE SECOURS (A supprimer après utilisation) ---
+// Cette route permet de remplir la base Aiven directement depuis le navigateur
+Route::get('/force-seed-uts-2026', function () {
+    try {
+        Artisan::call('db:seed', ['--force' => true]);
+        return "Succès : La base Aiven a été initialisée avec l'admin Augustin et la clinique démo !";
+    } catch (\Exception $e) {
+        return "Erreur lors du seeding : " . $e->getMessage();
+    }
 });
 
 require __DIR__.'/auth.php';
