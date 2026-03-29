@@ -3,59 +3,70 @@
 namespace App\Http\Controllers;
 
 use App\Models\Clinic;
+use App\Models\Appointment;
+use App\Models\Patient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Models\Appointment;
 
 class ClinicController extends Controller
 {
     /**
-     * Affiche le Dashboard selon le rôle.
+     * Affiche le Dashboard selon le rôle de l'utilisateur.
      */
-    
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        $search = $request->input('search');
 
-public function index(Request $request)
-{
-    $user = auth()->user();
-    $search = $request->input('search');
-
-    // 1. On récupère les cliniques avec filtre si recherche
-    $clinics = Clinic::query()
-        ->when($search, function ($query, $search) {
-            $query->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-        })
-        ->get();
-
-    // 2. Logique des rendez-vous (déjà en place)
-    $appointments = collect();
-    if ($user->role === 'secretaire') {
-        $appointments = Appointment::with(['patient.user', 'doctor', 'service'])
-            ->where('clinic_id', $user->clinic_id)
-            ->where('status', 'pending')
+        // 1. Récupération des cliniques (visible par tous ou filtrée)
+        $clinics = Clinic::query()
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+            })
             ->get();
-    } elseif ($user->role === 'medecin') {
-        $appointments = Appointment::with(['patient.user', 'service'])
-            ->where('doctor_id', $user->id)
-            ->where('status', 'confirmed')
-            ->get();
-    } elseif ($user->role === 'patient') {
-        $appointments = Appointment::with(['doctor', 'clinic', 'service'])
-            ->where('user_id', $user->id)
-            ->latest()->get();
+
+        // 2. Initialisation de la collection des rendez-vous
+        $appointments = collect();
+
+        // 3. Logique de récupération des rendez-vous par rôle
+        if ($user->role === 'secretaire') {
+            // La secrétaire voit les RDV en attente de SA clinique
+            $appointments = Appointment::with(['patient.user', 'doctor', 'service'])
+                ->where('clinic_id', $user->clinic_id)
+                ->where('status', 'pending')
+                ->get();
+
+        } elseif ($user->role === 'medecin') {
+            // Le médecin voit ses RDV confirmés
+            $appointments = Appointment::with(['patient.user', 'service'])
+                ->where('doctor_id', $user->id)
+                ->where('status', 'confirmed')
+                ->get();
+
+        } elseif ($user->role === 'patient') {
+            // On récupère le profil Patient lié à l'User
+            $patientProfile = Patient::where('user_id', $user->id)->first();
+
+            if ($patientProfile) {
+                // On utilise patient_id car c'est le nom dans ta migration appointments
+                $appointments = Appointment::with(['doctor', 'clinic', 'service'])
+                    ->where('patient_id', $patientProfile->id)
+                    ->latest()
+                    ->get();
+            }
+        }
+
+        return Inertia::render('Dashboard', [
+            'clinics' => $clinics,
+            'appointments' => $appointments,
+            'filters' => $request->only(['search'])
+        ]);
     }
-
-    return Inertia::render('Dashboard', [
-        'clinics' => $clinics,
-        'appointments' => $appointments,
-        'filters' => $request->only(['search']) // On renvoie le filtre pour l'input
-    ]);
-}
 
     public function create()
     {
-        // Seul l'admin devrait pouvoir créer (tu peux ajouter un gate ici)
         return Inertia::render('Clinics/Create');
     }
 
@@ -66,7 +77,7 @@ public function index(Request $request)
             'description' => 'nullable|string|max:500',
         ]);
 
-        // On lie la clinique à l'admin qui la crée
+        // Création de la clinique liée à l'admin
         Auth::user()->clinics()->create([
             'name' => $request->name,
             'description' => $request->description,
@@ -79,9 +90,9 @@ public function index(Request $request)
     {
         $user = Auth::user();
 
-        // Sécurité : Un médecin/secrétaire ne peut voir que SA clinique
-        if (!$user->isAdmin() && $user->clinic_id !== $clinic->id && !$user->isPatient()) {
-            abort(403, 'Accès non autorisé à cette clinique.');
+        // Vérification des droits d'accès
+        if (!$user->isAdmin() && $user->clinic_id !== $clinic->id && $user->role !== 'patient') {
+            abort(403, 'Accès non autorisé.');
         }
 
         return Inertia::render('Clinics/Show', [
@@ -89,7 +100,6 @@ public function index(Request $request)
             'stats' => [
                 'patients_count' => $clinic->patients()->count(),
                 'doctors_count' => $clinic->doctors()->count(),
-                // 'now()' fonctionne parfaitement ici pour le jour J
                 'appointments_today' => $clinic->appointments()
                     ->whereDate('appointment_date', now()->toDateString())
                     ->count(),

@@ -4,31 +4,32 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Appointment extends Model
 {
     use HasFactory;
 
-    // Constantes pour gérer les statuts proprement
-    const STATUS_PENDING = 'en_attente';
-    const STATUS_CONFIRMED = 'valide';
-    const STATUS_CANCELLED = 'refuse';
+    // Harmonisation avec les ENUM de ta migration
+    const STATUS_PENDING = 'pending';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
         'clinic_id', 
         'doctor_id', 
         'patient_id', 
         'secretary_id', 
+        'service_id',
         'appointment_date', 
         'reason', 
         'status',
-        'dateheure',    // Ajouté selon ta structure SQL
-        'service_id'    // Ajouté selon ta structure SQL
     ];
 
     // Relations
-    public function doctor() { return $this->belongsTo(Doctor::class); }
-    public function patient() { return $this->belongsTo(Patient::class); }
-    public function secretary() { return $this->belongsTo(Secretary::class); }
-    public function clinic() { return $this->belongsTo(Clinic::class); }
+    public function doctor(): BelongsTo { return $this->belongsTo(Doctor::class); }
+    public function patient(): BelongsTo { return $this->belongsTo(Patient::class); }
+    public function secretary(): BelongsTo { return $this->belongsTo(Secretary::class); }
+    public function clinic(): BelongsTo { return $this->belongsTo(Clinic::class); }
+    public function service(): BelongsTo { return $this->belongsTo(Service::class); }
 }
