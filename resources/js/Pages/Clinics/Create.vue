@@ -19,51 +19,65 @@ const submit = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Nouvelle Clinique</h2>
+            <div class="flex items-center gap-4">
+                <Link :href="route('dashboard')" class="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                </Link>
+                <h2 class="font-black text-2xl text-slate-800 tracking-tight">Configuration d'Établissement</h2>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
-                <form @submit.prevent="submit" class="bg-white p-6 shadow sm:rounded-lg border border-gray-100">
-                    
-                    <div>
-                        <label class="block font-medium text-sm text-gray-700">Nom de la clinique</label>
-                        <input 
-                            v-model="form.name" 
-                            type="text" 
-                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            :class="{ 'border-red-500': form.errors.name }"
-                            required
-                        >
-                        <div v-if="form.errors.name" class="text-red-500 text-xs mt-1">{{ form.errors.name }}</div>
+        <div class="py-12 bg-slate-50/50 min-h-screen">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                    <div class="p-8 border-b border-slate-50 bg-slate-50/30">
+                        <h3 class="font-bold text-lg text-slate-800">Informations Générales</h3>
+                        <p class="text-sm text-slate-500">Ces détails seront visibles par tous les patients du réseau UTS.</p>
                     </div>
 
-                    <div class="mt-4">
-                        <label class="block font-medium text-sm text-gray-700">Description</label>
-                        <textarea 
-                            v-model="form.description" 
-                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            :class="{ 'border-red-500': form.errors.description }"
-                            rows="3"
-                        ></textarea>
-                        <div v-if="form.errors.description" class="text-red-500 text-xs mt-1">{{ form.errors.description }}</div>
-                    </div>
+                    <form @submit.prevent="submit" class="p-8 space-y-6">
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-slate-700 ml-1">Nom Officiel de la Clinique</label>
+                            <input 
+                                v-model="form.name" 
+                                type="text" 
+                                placeholder="ex: Centre de Santé Universitaire (CSU)"
+                                class="w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 transition-all font-medium" 
+                                :class="{ 'border-red-500 bg-red-50': form.errors.name }"
+                            >
+                            <p v-if="form.errors.name" class="text-red-500 text-xs font-bold mt-1 ml-2">{{ form.errors.name }}</p>
+                        </div>
 
-                    <div class="mt-6 flex items-center justify-end space-x-4">
-                        <Link :href="route('dashboard')" class="text-sm text-gray-600 hover:underline">
-                            Annuler
-                        </Link>
-                        
-                        <button 
-                            type="submit" 
-                            :disabled="form.processing" 
-                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition"
-                        >
-                            <span v-if="form.processing">Traitement...</span>
-                            <span v-else>Enregistrer</span>
-                        </button>
-                    </div>
-                </form>
+                        <div class="space-y-2">
+                            <label class="text-sm font-bold text-slate-700 ml-1">Présentation et Services</label>
+                            <textarea 
+                                v-model="form.description" 
+                                placeholder="Décrivez les spécialités et les horaires..."
+                                class="w-full px-5 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 transition-all font-medium" 
+                                :class="{ 'border-red-500 bg-red-50': form.errors.description }"
+                                rows="5"
+                            ></textarea>
+                            <p v-if="form.errors.description" class="text-red-500 text-xs font-bold mt-1 ml-2">{{ form.errors.description }}</p>
+                        </div>
+
+                        <div class="pt-4 flex items-center justify-end gap-4">
+                            <Link :href="route('dashboard')" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">
+                                Annuler
+                            </Link>
+                            
+                            <button 
+                                type="submit" 
+                                :disabled="form.processing" 
+                                class="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-indigo-600 disabled:opacity-50 transition-all shadow-lg shadow-slate-200 active:scale-95"
+                            >
+                                <span v-if="form.processing">Enregistrement...</span>
+                                <span v-else>Créer la clinique</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

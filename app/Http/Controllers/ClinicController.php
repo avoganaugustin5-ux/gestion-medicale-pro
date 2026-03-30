@@ -62,9 +62,13 @@ class ClinicController extends Controller
         }
 
         return Inertia::render('Dashboard', [
+            'auth' => [
+                'user' => $user // On s'assure que tout l'objet user avec le rôle est envoyé
+            ],
             'clinics' => $clinics,
             'appointments' => $appointments,
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search']),
+            'userRole' => $role, // On ajoute cette ligne pour simplifier l'accès dans le Dashboard.vue
         ]);
     }
 
@@ -89,10 +93,11 @@ class ClinicController extends Controller
         return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
     }
 
-    public function show(Clinic $clinic)
+    public function show(Request $request, Clinic $clinic)
     {
         $user = Auth::user();
         $role = strtolower($user->role ?? '');
+        $search = $request->input('search');
 
         if ($role !== 'admin' && $user->clinic_id !== $clinic->id && $role !== 'patient') {
             abort(403, 'Accès non autorisé.');
@@ -100,14 +105,24 @@ class ClinicController extends Controller
 
         return Inertia::render('Clinics/Show', [
             'clinic' => $clinic,
+            // Filtrage dynamique du personnel
+            'staff' => $clinic->users()
+                ->whereIn('role', ['medecin', 'secretaire'])
+                ->when($search, function ($query, $search) {
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                    });
+                })
+                ->get(),
             'stats' => [
                 'patients_count' => $clinic->patients()->count(),
-                'doctors_count' => $clinic->doctors()->count(),
-                // Vérifie si c'est 'date_rdv' ou 'appointment_date' dans ta DB
+                'doctors_count' => $clinic->users()->where('role', 'medecin')->count(),
                 'appointments_today' => $clinic->appointments()
                     ->whereDate('appointment_date', now()->toDateString())
                     ->count(),
-            ]
+            ],
+            'filters' => $request->only(['search']), // On renvoie le filtre pour garder le texte dans l'input
         ]);
     }
 }

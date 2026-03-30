@@ -50,4 +50,12 @@ class Patient extends Model
     {
         return $this->hasMany(Appointment::class)->where('status', 'valide');
     }
+
+    /**
+            * Historique médical du patient
+    */
+    public function consultations(): HasMany
+    {
+        return $this->hasMany(Consultation::class)->latest();
+    }
 }

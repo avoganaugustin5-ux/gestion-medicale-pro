@@ -5,6 +5,7 @@ import { computed, watch, ref } from 'vue';
 import debounce from 'lodash/debounce';
 
 // Importation des composants par rôle
+import AdminDashboard from './DashboardPartials/AdminDashboard.vue'; // Mis à jour
 import PatientDashboard from './DashboardPartials/PatientDashboard.vue';
 import SecretaryDashboard from './DashboardPartials/SecretaryDashboard.vue';
 import DoctorDashboard from './DashboardPartials/DoctorDashboard.vue';
@@ -17,28 +18,21 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
-
-// --- NORMALISATION DU RÔLE ---
 const userRole = computed(() => user.value?.role?.toLowerCase() || 'guest');
 
 const roleLabel = computed(() => {
     const roles = { 
-        'admin': 'Administrateur', 
-        'medecin': 'Docteur / Praticien', 
-        'secretaire': 'Secrétariat Médical', 
-        'patient': 'Espace Patient' 
+        'admin': 'Administration Centrale', 
+        'medecin': 'Espace Praticien', 
+        'secretaire': 'Gestion Secrétariat', 
+        'patient': 'Mon Espace Santé' 
     };
     return roles[userRole.value] || 'Utilisateur';
 });
 
-// --- RECHERCHE RÉACTIVE ---
 const search = ref(props.filters?.search || '');
-
 watch(search, debounce((value) => {
-    router.get(route('dashboard'), { search: value }, { 
-        preserveState: true, 
-        replace: true 
-    });
+    router.get(route('dashboard'), { search: value }, { preserveState: true, replace: true });
 }, 400));
 </script>
 
@@ -48,111 +42,64 @@ watch(search, debounce((value) => {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h2 class="font-bold text-2xl text-gray-800 leading-tight">
+                <h2 class="font-black text-2xl text-slate-800 tracking-tight">
                     {{ roleLabel }}
                 </h2>
                 
                 <div class="flex gap-3">
                     <Link v-if="userRole === 'admin'" :href="route('clinics.create')" 
-                        class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition-all">
+                        class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
                         <span class="mr-2">➕</span> Nouvelle Clinique
-                    </Link>
-                    
-                    <Link v-if="userRole === 'patient'" :href="route('appointments.create')" 
-                        class="inline-flex items-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase rounded-lg shadow-sm transition-all">
-                        <span class="mr-2">📅</span> Prendre RDV
                     </Link>
                 </div>
             </div>
         </template>
 
-        <div class="py-10 bg-gray-50 min-h-screen">
+        <div class="py-10 bg-slate-50/50 min-h-screen">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <transition name="fade">
                     <div v-if="$page.props.flash?.success" 
-                        class="mb-8 p-4 bg-white border-l-4 border-emerald-500 shadow-sm rounded-r-xl flex justify-between items-center">
-                        <div class="flex items-center text-emerald-800 font-medium">
-                            <span class="text-xl mr-3">✨</span> {{ $page.props.flash.success }}
-                        </div>
+                        class="mb-8 p-4 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 shadow-sm rounded-r-xl flex items-center">
+                        <span class="text-xl mr-3">✅</span> {{ $page.props.flash.success }}
                     </div>
                 </transition>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-10 overflow-hidden relative">
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 mb-10 relative overflow-hidden">
                     <div class="relative z-10">
-                        <h3 class="text-2xl font-black text-slate-900">Ravi de vous revoir, {{ user?.name }} !</h3>
-                        <p class="text-slate-500 mt-2 max-w-2xl">
-                            Système de gestion médicale UTS. Gérez vos rendez-vous et vos dossiers médicaux en toute simplicité.
+                        <h3 class="text-3xl font-black text-slate-900">Ravi de vous revoir, {{ user?.name }} !</h3>
+                        <p class="text-slate-500 mt-2 max-w-2xl font-medium">
+                            Plateforme de gestion hospitalière UTS. Accédez à vos outils de pilotage en un clic.
                         </p>
                     </div>
-                    <div class="absolute top-0 right-0 p-4 opacity-10">
-                        <span class="text-8xl">🏥</span>
+                    <div class="absolute -top-4 -right-4 opacity-5 pointer-events-none">
+                        <span class="text-[12rem]">🏥</span>
                     </div>
                 </div>
 
-                <div v-if="userRole === 'admin'" class="space-y-6 mb-12">
-                    <h4 class="text-xs font-black text-indigo-500 uppercase tracking-[0.2em] mb-4">📊 Activité Globale du Réseau</h4>
-                    <SecretaryDashboard :appointments="appointments" />
+                <div class="space-y-10">
+                    <AdminDashboard v-if="userRole === 'admin'" :clinics="clinics" />
+                    
+                    <SecretaryDashboard v-else-if="userRole === 'secretaire'" :appointments="appointments" />
+                    
+                    <DoctorDashboard v-else-if="userRole === 'medecin'" :appointments="appointments" />
+                    
+                    <PatientDashboard v-else-if="userRole === 'patient'" :appointments="appointments" />
                 </div>
 
-                <div v-else-if="userRole === 'secretaire'" class="mb-12">
-                    <SecretaryDashboard :appointments="appointments" />
-                </div>
-
-                <div v-else-if="userRole === 'medecin'" class="mb-12">
-                    <DoctorDashboard :appointments="appointments" />
-                </div>
-
-                <div v-else-if="userRole === 'patient'" class="mb-12">
-                    <PatientDashboard :appointments="appointments" />
-                </div>
-
-                <div v-if="userRole === 'admin' || userRole === 'patient'" class="mt-16">
+                <div v-if="userRole === 'admin' || userRole === 'patient'" class="mt-20 border-t border-slate-200 pt-10">
                     <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
                         <div>
-                            <h4 class="text-xl font-bold text-slate-800">Cliniques partenaires</h4>
-                            <p class="text-sm text-slate-500">Recherchez un établissement par nom ou spécialité.</p>
+                            <h4 class="text-2xl font-black text-slate-800">Exploration du Réseau</h4>
+                            <p class="text-slate-500 font-medium">Rechercher un établissement spécifique au sein de l'université.</p>
                         </div>
-                        
                         <div class="w-full md:w-96">
-                            <input v-model="search" type="text" 
-                                placeholder="Filtrer les cliniques..." 
-                                class="w-full px-5 py-3 rounded-xl border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
-                            />
+                            <input v-model="search" type="text" placeholder="Nom de la clinique..." 
+                                class="w-full px-6 py-4 rounded-2xl border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm font-medium" />
                         </div>
-                    </div>
-
-                    <div v-if="clinics.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <div v-for="clinic in clinics" :key="clinic.id" 
-                            class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="p-3 bg-indigo-50 rounded-xl group-hover:bg-indigo-600 transition-colors">
-                                    <span class="text-2xl group-hover:filter group-hover:invert">🏢</span>
-                                </div>
-                                <span class="px-3 py-1 bg-slate-50 text-slate-500 text-[10px] font-bold uppercase rounded-lg">Actif</span>
-                            </div>
-                            <h5 class="text-lg font-bold text-slate-900 mb-2">{{ clinic.name }}</h5>
-                            <p class="text-sm text-slate-500 line-clamp-2 mb-6">{{ clinic.description || 'Aucune description disponible.' }}</p>
-                            
-                            <Link :href="route('clinics.show', clinic.id)" 
-                                class="w-full inline-flex justify-center items-center py-3 bg-slate-900 text-white text-xs font-bold uppercase rounded-xl hover:bg-indigo-600 transition-all">
-                                Explorer l'établissement
-                            </Link>
-                        </div>
-                    </div>
-
-                    <div v-else class="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
-                        <span class="text-5xl block mb-4">🔍</span>
-                        <p class="text-slate-400 font-medium">Aucune clinique ne correspond à votre recherche.</p>
                     </div>
                 </div>
-
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-</style>
