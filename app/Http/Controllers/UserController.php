@@ -10,52 +10,42 @@ use Inertia\Inertia;
 class UserController extends Controller
 {
     /**
-     * Affiche la liste des utilisateurs et des cliniques pour l'administration.
+     * Affiche la liste des utilisateurs (Gestion Utilisateurs)
      */
     public function index()
     {
-        // Récupération de tous les utilisateurs avec leurs cliniques (Eager Loading)
         $users = User::with('clinics')->orderBy('created_at', 'desc')->get();
         
-        // CORRECTION ICI : Utilisation de 'name' au lieu de 'nom' pour correspondre à ta migration
+        // Correction 'name' pour la base de données
         $clinics = Clinic::select('id', 'name')->get();
 
-        return Inertia::render('Admin/Users/Index', [
+        // Correction du chemin : pointe vers Admin/Users.vue
+        return Inertia::render('Admin/Users', [
             'users' => $users,
-            'clinics' => $clinics
+            'clinics' => $clinics,
+            'filters' => request()->all(['search'])
         ]);
     }
 
     /**
-     * Met à jour le rôle d'un utilisateur.
-     */
-    public function updateRole(Request $request, User $user)
-    {
-        $request->validate([
-            'role' => 'required|string|in:admin,medecin,secretaire,patient',
-        ]);
-
-        $user->update(['role' => $request->role]);
-
-        return back()->with('message', 'Rôle mis à jour avec succès.');
-    }
-
-    /**
-     * Affiche la page des affectations (Personnel <-> Clinique).
+     * Affiche la page des affectations (Personnel & Affectations)
      */
     public function assignments()
     {
-        $users = User::whereIn('role', ['medecin', 'secretaire'])->with('clinics')->get();
-        $clinics = Clinic::select('id', 'name')->get(); // Correction 'name' ici aussi
+        // On récupère le personnel (médecins et secrétaires) avec leur clinique
+        $staff = User::whereIn('role', ['medecin', 'secretaire'])->with('clinics')->get();
+        $clinics = Clinic::select('id', 'name')->get();
 
-        return Inertia::render('Admin/Assignments/Index', [
-            'users' => $users,
+        // Correction du chemin : pointe vers Admin/Assignments.vue
+        // Note : On envoie 'staff' car c'est ce que ton script Vue attend en props
+        return Inertia::render('Admin/Assignments', [
+            'staff' => $staff,
             'clinics' => $clinics
         ]);
     }
 
     /**
-     * Lie un utilisateur (médecin/secrétaire) à une clinique.
+     * Logique pour lier un agent à une clinique
      */
     public function storeAssignment(Request $request)
     {
@@ -66,23 +56,20 @@ class UserController extends Controller
 
         $user = User::findOrFail($request->user_id);
         
-        // syncWithoutDetaching évite les doublons dans la table pivot
-        $user->clinics()->syncWithoutDetaching([$request->clinic_id]);
+        // Utilisation de sync pour mettre à jour l'affectation
+        $user->clinics()->sync([$request->clinic_id]);
 
-        return back()->with('message', 'Affectation réussie.');
+        return back()->with('message', 'Agent affecté avec succès.');
     }
 
     /**
-     * Retire un utilisateur d'une clinique.
+     * Logique pour détacher un agent
      */
-    public function detachAssignment(Request $request, User $user)
+    public function detachAssignment(Request $request, $userId)
     {
-        $request->validate([
-            'clinic_id' => 'required|exists:clinics,id',
-        ]);
+        $user = User::findOrFail($userId);
+        $user->clinics()->detach();
 
-        $user->clinics()->detach($request->clinic_id);
-
-        return back()->with('message', 'Affectation retirée.');
+        return back()->with('message', 'Agent détaché de la clinique.');
     }
 }
