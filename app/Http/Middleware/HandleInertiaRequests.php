@@ -20,20 +20,17 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             
+            // On s'assure que 'auth' contient toujours un objet 'user' (ou null)
             'auth' => [
                 'user' => $request->user() ? [
-                    'id'        => $request->user()->id,
-                    'name'      => $request->user()->name,
-                    'email'     => $request->user()->email,
-                    'role'      => $request->user()->role, 
-                    'sexe'      => $request->user()->sexe,
-                    'image'     => $request->user()->imageProfil,
-                    'clinic_id' => $request->user()->clinic_id,
+                    'id'    => $request->user()->id,
+                    'name'  => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'role'  => $request->user()->role,
                 ] : null,
             ],
 
             'flash' => [
-                'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),
                 'error'   => fn () => $request->session()->get('error'),
             ],

@@ -4,19 +4,19 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
-const showingNavigationDropdown = ref(false);
 const page = usePage();
 
-// Accès sécurisé à l'utilisateur
-const user = computed(() => page.props.auth?.user);
+// On récupère l'utilisateur avec une sécurité maximale pour éviter le "undefined"
+const user = computed(() => {
+    return page.props.auth?.user || { name: 'Utilisateur', role: '' };
+});
 
-// Fonction pour vérifier le rôle sans se soucier des majuscules/minuscules
-const hasRole = (role) => {
-    if (!user.value?.role) return false;
-    return user.value.role.toLowerCase() === role.toLowerCase();
+// Fonction de vérification simplifiée
+const isRole = (roleName) => {
+    const userRole = user.value?.role || '';
+    return userRole.toLowerCase() === roleName.toLowerCase();
 };
 </script>
 
@@ -38,7 +38,7 @@ const hasRole = (role) => {
                             </NavLink>
 
                             <NavLink 
-                                v-if="hasRole('admin')" 
+                                v-if="isRole('admin')" 
                                 :href="route('admin.users.index')"
                                 :active="route().current('admin.users.*')"
                             >
@@ -46,27 +46,11 @@ const hasRole = (role) => {
                             </NavLink>
 
                             <NavLink 
-                                v-if="hasRole('admin') || hasRole('secretaire')"
+                                v-if="isRole('admin') || isRole('secretaire')"
                                 :href="route('services.index')" 
                                 :active="route().current('services.*')"
                             >
                                 Espace Secrétariat
-                            </NavLink>
-
-                            <NavLink 
-                                v-if="hasRole('medecin')"
-                                :href="route('dashboard')" 
-                                :active="route().current('doctor.planning')"
-                            >
-                                📅 Mon Planning
-                            </NavLink>
-
-                            <NavLink 
-                                v-if="hasRole('patient')"
-                                :href="route('dashboard')" 
-                                :active="route().current('appointments.*')"
-                            >
-                                Mes Rendez-vous
                             </NavLink>
                         </div>
                     </div>
@@ -76,8 +60,8 @@ const hasRole = (role) => {
                             <Dropdown align="right" width="48">
                                 <template #trigger>
                                     <span class="inline-flex rounded-md">
-                                        <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-slate-600 bg-white hover:text-indigo-600 focus:outline-none transition ease-in-out duration-150">
-                                            {{ user?.name || 'Utilisateur' }}
+                                        <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-slate-600 bg-white hover:text-indigo-600 focus:outline-none transition">
+                                            {{ user.name }}
                                             <svg class="ms-2 -me-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                             </svg>
@@ -87,9 +71,7 @@ const hasRole = (role) => {
 
                                 <template #content>
                                     <DropdownLink :href="route('profile.edit')"> Mon Profil </DropdownLink>
-                                    <DropdownLink :href="route('logout')" method="post" as="button" class="text-red-600"> 
-                                        Déconnexion 
-                                    </DropdownLink>
+                                    <DropdownLink :href="route('logout')" method="post" as="button"> Déconnexion </DropdownLink>
                                 </template>
                             </Dropdown>
                         </div>
@@ -98,7 +80,7 @@ const hasRole = (role) => {
             </div>
         </nav>
 
-        <header class="bg-white shadow-sm border-b border-slate-100" v-if="$slots.header">
+        <header class="bg-white shadow" v-if="$slots.header">
             <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <slot name="header" />
             </div>
