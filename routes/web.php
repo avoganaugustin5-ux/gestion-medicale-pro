@@ -13,27 +13,43 @@ use App\Http\Controllers\ConsultationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// 1. PUBLIC
+/*
+|--------------------------------------------------------------------------
+| Web Routes - UTS Santé / Gestion Médicale Pro
+|--------------------------------------------------------------------------
+*/
+
+// 1. PUBLIC : Redirection automatique vers la connexion
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// 2. ROUTES PROTÉGÉES (Connectés uniquement)
+// 2. ROUTES PROTÉGÉES (Authentification requise)
 Route::middleware(['auth', 'verified'])->group(function () {
     
-    // Dashboard dynamique selon le rôle (ClinicController gère la redirection vers le bon dashboard)
+    // Dashboard dynamique : Redirige l'utilisateur selon son rôle
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
-    // --- SECTION ADMINISTRATEUR ---
+    // --- SECTION ADMINISTRATEUR CENTRAL ---
     Route::middleware(['role:admin'])->group(function () {
+        // Gestion des établissements (Cliniques/Centres de santé)
         Route::get('/clinics/create', [ClinicController::class, 'create'])->name('clinics.create');
         Route::post('/clinics', [ClinicController::class, 'store'])->name('clinics.store');
+
+        // Gestion des Utilisateurs & Rôles
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
         Route::patch('/admin/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.updateRole');
-        Route::resource('services', ServiceController::class);
+
+        // Affectations du personnel aux cliniques
         Route::get('/admin/assignments', [UserController::class, 'assignments'])->name('admin.assignments.index');
         Route::post('/admin/assignments', [UserController::class, 'storeAssignment'])->name('admin.assignments.store');
         Route::post('/admin/assignments/{user}/detach', [UserController::class, 'detachAssignment'])->name('admin.assignments.detach'); 
+    });
+
+    // --- SECTION SERVICES (Admin & Secrétaire) ---
+    // Cette route est cruciale pour ton onglet "Espace Secrétariat"
+    Route::middleware(['role:admin,secretaire'])->group(function () {
+        Route::resource('services', ServiceController::class);
     });
 
     // --- SECTION MÉDECIN ---
@@ -43,43 +59,49 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/doctor/availabilities/{availability}', [DoctorController::class, 'destroyAvailability'])->name('doctor.availabilities.destroy');
     });
 
-    // --- SECTION MÉDECIN, SECRÉTAIRE & ADMIN ---
+    // --- SECTION GESTION CLINIQUE (Médecin, Secrétaire & Admin) ---
     Route::middleware(['role:medecin,secretaire,admin'])->group(function () {
         Route::prefix('clinics/{clinic}')->group(function () {
+            // Détails et édition de la clinique
             Route::get('/', [ClinicController::class, 'show'])->name('clinics.show');
             Route::get('/edit', [ClinicController::class, 'edit'])->name('clinics.edit');
             Route::patch('/', [ClinicController::class, 'update'])->name('clinics.update');
             Route::delete('/', [ClinicController::class, 'destroy'])->name('clinics.destroy');
 
+            // Dashboard spécifique au secrétariat de la clinique
             Route::get('/secretary', [SecretaryController::class, 'index'])->name('secretary.index');
 
+            // Ressources médicales de la clinique
             Route::resource('doctors', DoctorController::class)->names('clinics.doctors');
             Route::resource('patients', PatientController::class)->names('clinics.patients');
             Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
 
-            // Gestion des Consultations & Ordonnances (Dossier Médical)
-            Route::post('/patients/{patient}/consultations', [ConsultationController::class, 'store'])->name('clinics.patients.consultations.store');
-            Route::get('/patients/{patient}/consultations/{consultation}/pdf', [ConsultationController::class, 'downloadPDF'])->name('consultations.pdf');
-            Route::patch('/patients/{patient}/consultations/{consultation}', [ConsultationController::class, 'update'])->name('consultations.update');
-            Route::delete('/patients/{patient}/consultations/{consultation}', [ConsultationController::class, 'destroy'])->name('consultations.destroy');
+            // Gestion des Consultations & Dossiers Médicaux
+            Route::controller(ConsultationController::class)->group(function () {
+                Route::post('/patients/{patient}/consultations', 'store')->name('clinics.patients.consultations.store');
+                Route::get('/patients/{patient}/consultations/{consultation}/pdf', 'downloadPDF')->name('consultations.pdf');
+                Route::patch('/patients/{patient}/consultations/{consultation}', 'update')->name('consultations.update');
+                Route::delete('/patients/{patient}/consultations/{consultation}', 'destroy')->name('consultations.destroy');
+            });
         });
 
-        // Mise à jour du statut par la secrétaire (inclut maintenant le motif de refus)
+        // Mise à jour rapide du statut d'un rendez-vous (Validation/Refus)
         Route::put('/appointments/{appointment}/status', [SecretaryController::class, 'updateStatus'])->name('appointments.updateStatus');
     });
 
-    // --- SECTION PATIENT (Espace réservé aux patients pour leurs demandes) ---
+    // --- SECTION PATIENT ---
     Route::middleware(['role:patient,admin'])->group(function () {
-        // Page du formulaire de demande de RDV
+        // Prise de rendez-vous côté patient
         Route::get('/appointments/create', [PatientAppointmentController::class, 'create'])->name('appointments.create');
-        // Traitement de l'envoi du formulaire
         Route::post('/appointments', [PatientAppointmentController::class, 'store'])->name('appointments.store');
     });
 
-    // --- SECTION PROFIL COMMUN ---
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // --- SECTION PROFIL (Commun à tous) ---
+    Route::controller(ProfileController::class)->group(function () {
+        Route::get('/profile', 'edit')->name('profile.edit');
+        Route::patch('/profile', 'update')->name('profile.update');
+        Route::delete('/profile', 'destroy')->name('profile.destroy');
+    });
 });
 
 require __DIR__.'/auth.php';

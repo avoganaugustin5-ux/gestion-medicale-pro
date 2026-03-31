@@ -108,6 +108,11 @@ class ClinicController extends Controller
         ]);
     }
 
+    public function create()
+    {
+        return Inertia::render('Clinics/Create'); 
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -115,10 +120,11 @@ class ClinicController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
+        // Utilise fillable ou create directement
         $clinic = Clinic::create([
             'name' => $request->name,
             'description' => $request->description,
-            'user_id' => Auth::id(), 
+            // 'user_id' => Auth::id(), // Optionnel si tu n'as pas de colonne user_id dans clinics
         ]);
 
         ActivityLog::create([
@@ -132,18 +138,48 @@ class ClinicController extends Controller
         return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
     }
 
+    // --- MÉTHODES MANQUANTES À AJOUTER ---
+
+    public function edit(Clinic $clinic)
+    {
+        return Inertia::render('Clinics/Edit', [
+            'clinic' => $clinic
+        ]);
+    }
+
+    public function update(Request $request, Clinic $clinic)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:500',
+        ]);
+
+        $clinic->update($request->only('name', 'description'));
+
+        return redirect()->route('dashboard')->with('success', 'Clinique mise à jour.');
+    }
+
+    public function destroy(Clinic $clinic)
+    {
+        $clinic->delete();
+        return redirect()->route('dashboard')->with('success', 'Clinique supprimée.');
+    }
+
     public function show(Request $request, Clinic $clinic)
     {
         $user = Auth::user();
         $role = strtolower($user->role ?? '');
         $search = $request->input('search');
 
-        if ($role !== 'admin' && $user->clinic_id !== $clinic->id && $role !== 'patient') {
-            abort(403, 'Accès non autorisé.');
+        // Sécurité : Vérifier si l'utilisateur a le droit de voir CETTE clinique
+        if ($role !== 'admin' && $user->clinic_id !== $clinic->id) {
+             // Exception pour les patients : à voir selon ton besoin
+             if ($role !== 'patient') abort(403);
         }
 
         return Inertia::render('Clinics/Show', [
             'clinic' => $clinic,
+            // Utilise une pagination ou get()
             'staff' => $clinic->users()
                 ->whereIn('role', ['medecin', 'secretaire'])
                 ->when($search, function ($query, $search) {

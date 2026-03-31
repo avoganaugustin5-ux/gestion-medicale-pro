@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Clinic;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Redirect;
 
 class UserController extends Controller
 {
@@ -15,26 +16,26 @@ class UserController extends Controller
 
         return Inertia::render('Admin/Users', [
             'users' => User::query()
+                ->with('clinic') // Important pour afficher le nom de la clinique
                 ->when($search, function ($query, $search) {
                     $query->where('name', 'like', "%{$search}%")
                           ->orWhere('email', 'like', "%{$search}%");
                 })
+                ->latest()
                 ->get(),
-            'clinics' => Clinic::all(),
+            'clinics' => Clinic::all(['id', 'nom']), // On ne prend que le nécessaire
             'filters' => $request->only(['search'])
         ]);
     }
 
-    public function updateClinic(Request $request, User $user)
-    {
-        $user->update(['clinic_id' => $request->clinic_id]);
-        return redirect()->back();
-    }
-
     public function updateRole(Request $request, User $user)
     {
+        $request->validate([
+            'role' => 'required|in:admin,medecin,secretaire,patient',
+        ]);
+
         $user->update(['role' => $request->role]);
-        return redirect()->back()->with('success', 'Rôle mis à jour !');
+        return Redirect::back()->with('success', 'Le rôle de ' . $user->name . ' a été mis à jour.');
     }
 
     public function assignments(Request $request)
@@ -56,18 +57,20 @@ class UserController extends Controller
 
     public function storeAssignment(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'clinic_id' => 'required|exists:clinics,id',
         ]);
 
-        User::where('id', $request->user_id)->update(['clinic_id' => $request->clinic_id]);
-        return redirect()->back()->with('success', "L'affectation a été effectuée.");
+        $user = User::findOrFail($validated['user_id']);
+        $user->update(['clinic_id' => $validated['clinic_id']]);
+
+        return Redirect::back()->with('success', "Affectation réussie pour " . $user->name);
     }
 
     public function detachAssignment(User $user)
     {
         $user->update(['clinic_id' => null]);
-        return redirect()->back()->with('success', "L'agent a été détaché de sa clinique.");
+        return Redirect::back()->with('success', "L'agent a été détaché avec succès.");
     }
 }
