@@ -8,12 +8,11 @@ import { Link, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
 
-// On récupère l'utilisateur avec une sécurité maximale pour éviter le "undefined"
+// Protection totale contre le undefined
 const user = computed(() => {
     return page.props.auth?.user || { name: 'Utilisateur', role: '' };
 });
 
-// Fonction de vérification simplifiée
 const isRole = (roleName) => {
     const userRole = user.value?.role || '';
     return userRole.toLowerCase() === roleName.toLowerCase();

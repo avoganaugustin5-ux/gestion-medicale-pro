@@ -17,10 +17,7 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
-            
-            // On s'assure que 'auth' contient toujours un objet 'user' (ou null)
+        return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user() ? [
                     'id'    => $request->user()->id,
@@ -29,16 +26,15 @@ class HandleInertiaRequests extends Middleware
                     'role'  => $request->user()->role,
                 ] : null,
             ],
-
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error'   => fn () => $request->session()->get('error'),
+                'success' => $request->session()->get('success'),
+                'error'   => $request->session()->get('error'),
             ],
-
-            'ziggy' => fn () => [
-                ...(new Ziggy)->toArray(),
-                'location' => $request->url(),
-            ],
-        ];
+            'ziggy' => function () use ($request) {
+                return array_merge((new Ziggy)->toArray(), [
+                    'location' => $request->url(),
+                ]);
+            },
+        ]);
     }
 }
