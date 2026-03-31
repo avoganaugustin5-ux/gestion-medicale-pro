@@ -1,19 +1,32 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import debounce from 'lodash/debounce';
 
 const props = defineProps({
     users: Array,
-    clinics: Array
+    clinics: Array,
+    filters: Object
 });
 
+const search = ref(props.filters?.search || '');
+
+watch(search, debounce((value) => {
+    router.get(route('admin.users.index'), { search: value }, { 
+        preserveState: true, 
+        replace: true 
+    });
+}, 300));
+
 const updateRole = (userId, newRole) => {
-    useForm({ role: newRole }).patch(route('admin.users.updateRole', userId), {
+    router.patch(route('admin.users.updateRole', userId), { role: newRole }, {
         preserveScroll: true,
     });
 };
+
 const assignClinic = (userId, clinicId) => {
-    useForm({ clinic_id: clinicId }).patch(route('admin.users.updateClinic', userId));
+    router.patch(route('admin.users.updateClinic', userId), { clinic_id: clinicId });
 };
 </script>
 
@@ -22,50 +35,53 @@ const assignClinic = (userId, clinicId) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Gestion des Utilisateurs & Rôles</h2>
+            <div class="flex justify-between items-center">
+                <h2 class="font-black text-xl text-slate-800 uppercase italic">👥 Utilisateurs & Rôles</h2>
+                
+                <div class="relative w-64">
+                    <input 
+                        v-model="search" 
+                        type="text" 
+                        placeholder="Rechercher..." 
+                        class="w-full pl-10 pr-4 py-2 rounded-xl border-slate-200 text-sm focus:ring-indigo-500"
+                    />
+                    <span class="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                </div>
+            </div>
         </template>
 
-        <div class="py-12">
+        <div class="py-12 bg-slate-50 min-h-screen">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                <div class="bg-white overflow-hidden shadow-sm rounded-[2rem] border border-slate-100">
+                    <div class="p-0 text-gray-900">
+                        <table class="min-w-full divide-y divide-slate-100">
+                            <thead class="bg-slate-50/50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle Actuel</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Changer le Rôle</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Utilisateur</th>
+                                    <th class="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Rôle Actuel</th>
+                                    <th class="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="user in users" :key="user.id">
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ user.name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ user.email }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span :class="user.role === 'admin' ? 'text-red-600 font-bold' : 'text-blue-600'" class="uppercase text-xs">
+                            <tbody class="bg-white divide-y divide-slate-50">
+                                <tr v-for="user in users" :key="user.id" class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="font-bold text-slate-700">{{ user.name }}</div>
+                                        <div class="text-xs text-slate-400">{{ user.email }}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span :class="user.role === 'admin' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'" class="px-3 py-1 rounded-full text-[9px] font-black uppercase">
                                             {{ user.role }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <td class="px-6 py-4 text-right flex justify-end gap-3">
                                         <select 
                                             @change="updateRole(user.id, $event.target.value)"
-                                            class="text-sm rounded border-gray-300 shadow-sm focus:border-indigo-500"
+                                            class="text-xs rounded-xl border-slate-200 bg-slate-50 font-bold focus:ring-indigo-500"
                                         >
-                                            <option value="admin" :selected="user.role === 'admin'">Admin (Fondateur)</option>
-                                            <option value="secretary" :selected="user.role === 'secretary'">Secrétaire</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <select 
-                                            v-if="user.role === 'secretary'"
-                                            @change="assignClinic(user.id, $event.target.value)"
-                                            class="text-sm rounded border-gray-300"
-    >
-                                            <option value="">Aucune clinique</option>
-                                            <option v-for="clinic in clinics" :key="clinic.id" :value="clinic.id" :selected="user.clinic_id === clinic.id">
-                                                {{ clinic.name }}
-                                            </option>
+                                            <option value="admin" :selected="user.role === 'admin'">Admin</option>
+                                            <option value="medecin" :selected="user.role === 'medecin'">Médecin</option>
+                                            <option value="secretaire" :selected="user.role === 'secretaire'">Secrétaire</option>
+                                            <option value="patient" :selected="user.role === 'patient'">Patient</option>
                                         </select>
                                     </td>
                                 </tr>

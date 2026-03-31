@@ -3,21 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Clinic;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use App\Models\Clinic;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = $request->input('search');
+
         return Inertia::render('Admin/Users', [
-            'users' => \App\Models\User::all(),
-            'clinics' => \App\Models\Clinic::all() // On envoie les cliniques
+            'users' => User::query()
+                ->when($search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%")
+                          ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->get(),
+            'clinics' => Clinic::all(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
-    public function updateClinic(Request $request, \App\Models\User $user)
+    public function updateClinic(Request $request, User $user)
     {
         $user->update(['clinic_id' => $request->clinic_id]);
         return redirect()->back();
@@ -29,16 +37,20 @@ class UserController extends Controller
         return redirect()->back()->with('success', 'Rôle mis à jour !');
     }
 
-    
-
-    public function assignments()
+    public function assignments(Request $request)
     {
+        $search = $request->input('search');
+
         return Inertia::render('Admin/Assignments', [
-            // On charge la relation clinic pour voir l'affectation actuelle
             'staff' => User::whereIn('role', ['medecin', 'secretaire'])
-                        ->with('clinic') 
-                        ->get(),
+                ->with('clinic')
+                ->when($search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%")
+                          ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->get(),
             'clinics' => Clinic::all(),
+            'filters' => $request->only(['search'])
         ]);
     }
 
@@ -50,15 +62,12 @@ class UserController extends Controller
         ]);
 
         User::where('id', $request->user_id)->update(['clinic_id' => $request->clinic_id]);
-
         return redirect()->back()->with('success', "L'affectation a été effectuée.");
     }
 
-    // NOUVELLE MÉTHODE : Détacher l'utilisateur
     public function detachAssignment(User $user)
     {
         $user->update(['clinic_id' => null]);
-
         return redirect()->back()->with('success', "L'agent a été détaché de sa clinique.");
     }
 }

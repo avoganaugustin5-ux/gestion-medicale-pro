@@ -10,8 +10,14 @@ const form = useForm({
 });
 
 const changeStatus = (id, newStatus) => {
-    if (confirm(`Voulez-vous vraiment marquer ce RDV comme ${newStatus === 'confirmed' ? 'Confirmé' : 'Annulé'} ?`)) {
+    let reason = null;
+    if (newStatus === 'cancelled') {
+        reason = prompt("Motif du refus (optionnel) :");
+    }
+
+    if (confirm(`Confirmer cette action ?`)) {
         form.status = newStatus;
+        form.cancel_reason = reason; // Assure-toi d'ajouter cancel_reason dans useForm
         form.put(route('appointments.updateStatus', id));
     }
 };

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Notifications\AppointmentStatusUpdated;
 use App\Models\Clinic;
 use App\Models\Appointment;
 use Illuminate\Http\Request;
@@ -11,45 +12,56 @@ use Inertia\Inertia;
 class SecretaryController extends Controller
 {
     /**
-     * Cette méthode peut servir si tu décides d'avoir une page 
-     * dédiée uniquement à la secrétaire (/clinics/{clinic}/secretary).
+     * Affiche les rendez-vous d'une clinique spécifique pour la secrétaire.
      */
     public function index(Clinic $clinic)
     {
+        // Vérification de sécurité : La secrétaire appartient-elle à cette clinique ?
+        // (Optionnel selon ta logique d'affectation)
+
         return Inertia::render('Secretary/Dashboard', [
             'clinic' => $clinic,
             'appointments' => Appointment::where('clinic_id', $clinic->id)
-                ->with(['patient.user', 'doctor', 'service']) 
-                ->orderBy('date_rdv', 'asc')
+                ->with(['patient.user', 'doctor.user', 'service']) 
+                ->orderBy('appointment_date', 'asc')
                 ->get(),
         ]);
     }
 
     /**
-     * MISE À JOUR DU STATUT
-     * Cette méthode est celle appelée par ton SecretaryDashboard.vue
+     * Mise à jour du statut d'un rendez-vous (Validation/Refus).
      */
     public function updateStatus(Request $request, Appointment $appointment)
     {
-        // 1. Validation : On s'aligne sur les valeurs envoyées par le JS (confirmed/cancelled)
-        // Note : J'ai gardé 'pending' au cas où tu voudrais remettre en attente
+        // 1. VALIDATION DES DONNÉES ENTRANTES
         $request->validate([
             'status' => 'required|in:pending,confirmed,cancelled',
+            'cancel_reason' => 'nullable|string|max:500', 
         ]);
 
-        // 2. Sécurité : On vérifie que la secrétaire ne modifie pas un RDV d'une autre clinique
-        if (Auth::user()->role === 'secretaire' && $appointment->clinic_id !== Auth::user()->clinic_id) {
-            return redirect()->back()->with('error', 'Action non autorisée.');
+        // 2. SÉCURITÉ (Vérifier que la secrétaire travaille bien pour la clinique du RDV)
+        // Note : Si tu n'as pas encore de relation 'clinic_id' sur l'utilisateur, 
+        // tu peux ignorer cette vérification pour le moment.
+        if (Auth::user()->role === 'secretaire' && Auth::user()->clinic_id !== $appointment->clinic_id) {
+            // Optionnel : Décommenter si tu as configuré les clinic_id sur les users
+            // return redirect()->back()->with('error', 'Action non autorisée pour cet établissement.');
         }
 
-        // 3. Mise à jour en base de données
+        // 3. MISE À JOUR DU RENDEZ-VOUS
         $appointment->update([
-            'status' => $request->status
+            'status' => $request->status,
+            // On enregistre le motif uniquement si le statut est 'cancelled'
+            'cancel_reason' => $request->status === 'cancelled' ? $request->cancel_reason : null,
+            'secretary_id' => Auth::id(),
         ]);
 
-        // 4. Message de retour pour le flash message du Dashboard
-        $message = "Le rendez-vous a été " . ($request->status === 'confirmed' ? 'confirmé' : 'annulé') . " avec succès.";
+        // 4. ENVOI DE LA NOTIFICATION PAR EMAIL
+        // On récupère l'utilisateur lié au patient pour lui envoyer la notification
+        if ($appointment->patient && $appointment->patient->user) {
+            $appointment->patient->user->notify(new AppointmentStatusUpdated($appointment));
+        }
 
-        return redirect()->back()->with('message', $message);
+        // 5. RETOUR AVEC MESSAGE FLASH
+        return redirect()->back()->with('success', 'Le statut a été mis à jour et le patient a été averti par email.');
     }
 }

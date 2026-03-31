@@ -18,9 +18,10 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// 2. ROUTES PROTÉGÉES
+// 2. ROUTES PROTÉGÉES (Connectés uniquement)
 Route::middleware(['auth', 'verified'])->group(function () {
     
+    // Dashboard dynamique selon le rôle (ClinicController gère la redirection vers le bon dashboard)
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
     // --- SECTION ADMINISTRATEUR ---
@@ -35,7 +36,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/admin/assignments/{user}/detach', [UserController::class, 'detachAssignment'])->name('admin.assignments.detach'); 
     });
 
-    // --- SECTION MÉDECIN & SECRÉTAIRE ---
+    // --- SECTION MÉDECIN ---
+    Route::middleware(['role:medecin'])->group(function () {
+        Route::get('/doctor/planning', [DoctorController::class, 'myPlanning'])->name('doctor.planning');
+        Route::post('/doctor/availabilities', [DoctorController::class, 'storeAvailability'])->name('doctor.availabilities.store');
+        Route::delete('/doctor/availabilities/{availability}', [DoctorController::class, 'destroyAvailability'])->name('doctor.availabilities.destroy');
+    });
+
+    // --- SECTION MÉDECIN, SECRÉTAIRE & ADMIN ---
     Route::middleware(['role:medecin,secretaire,admin'])->group(function () {
         Route::prefix('clinics/{clinic}')->group(function () {
             Route::get('/', [ClinicController::class, 'show'])->name('clinics.show');
@@ -49,24 +57,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('patients', PatientController::class)->names('clinics.patients');
             Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
 
-            // Gestion des Consultations & Ordonnances
+            // Gestion des Consultations & Ordonnances (Dossier Médical)
             Route::post('/patients/{patient}/consultations', [ConsultationController::class, 'store'])->name('clinics.patients.consultations.store');
             Route::get('/patients/{patient}/consultations/{consultation}/pdf', [ConsultationController::class, 'downloadPDF'])->name('consultations.pdf');
             Route::patch('/patients/{patient}/consultations/{consultation}', [ConsultationController::class, 'update'])->name('consultations.update');
             Route::delete('/patients/{patient}/consultations/{consultation}', [ConsultationController::class, 'destroy'])->name('consultations.destroy');
         });
 
+        // Mise à jour du statut par la secrétaire (inclut maintenant le motif de refus)
         Route::put('/appointments/{appointment}/status', [SecretaryController::class, 'updateStatus'])->name('appointments.updateStatus');
-        Route::patch('/appointments/{appointment}/validate', [AppointmentController::class, 'validateStatus'])->name('appointments.validate');
     });
 
-    // --- SECTION PATIENT ---
+    // --- SECTION PATIENT (Espace réservé aux patients pour leurs demandes) ---
     Route::middleware(['role:patient,admin'])->group(function () {
+        // Page du formulaire de demande de RDV
         Route::get('/appointments/create', [PatientAppointmentController::class, 'create'])->name('appointments.create');
+        // Traitement de l'envoi du formulaire
         Route::post('/appointments', [PatientAppointmentController::class, 'store'])->name('appointments.store');
     });
 
-    // --- SECTION PROFIL ---
+    // --- SECTION PROFIL COMMUN ---
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

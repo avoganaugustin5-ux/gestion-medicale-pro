@@ -5,11 +5,11 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link, usePage } from '@inertiajs/vue3'; // Ajout indispensable de usePage
+import { Link, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
 
-// Cette ligne permet au template de lire "auth.user" sans planter
+// Récupération des données de la page (auth, flash, etc.)
 const page = usePage();
 </script>
 
@@ -47,13 +47,14 @@ const page = usePage();
                                     Espace Secrétariat
                                 </NavLink>
 
-                                <NavLink 
-                                    v-if="$page.props.auth?.user?.role === 'medecin'" 
-                                    :href="route('dashboard')" 
-                                    :active="route().current('consultations.*')"
-                                >
-                                    Mes Consultations
-                                </NavLink>
+                                <template v-if="$page.props.auth?.user?.role === 'medecin'">
+                                    <NavLink :href="route('doctor.planning')" :active="route().current('doctor.planning')">
+                                        📅 Mon Planning
+                                    </NavLink>
+                                    <NavLink :href="route('dashboard')" :active="route().current('consultations.*')">
+                                        Mes Consultations
+                                    </NavLink>
+                                </template>
 
                                 <NavLink 
                                     v-if="$page.props.auth?.user?.role === 'patient'"
@@ -78,6 +79,7 @@ const page = usePage();
                                             </button>
                                         </span>
                                     </template>
+
                                     <template #content>
                                         <DropdownLink :href="route('profile.edit')"> Profil </DropdownLink>
                                         <DropdownLink :href="route('logout')" method="post" as="button"> Déconnexion </DropdownLink>
@@ -103,13 +105,39 @@ const page = usePage();
                             Tableau de bord
                         </ResponsiveNavLink>
                         
-                        <ResponsiveNavLink v-if="$page.props.auth?.user?.role === 'admin'" :href="route('admin.users.index')">
+                        <ResponsiveNavLink v-if="$page.props.auth?.user?.role === 'admin'" :href="route('admin.users.index')" :active="route().current('admin.users.*')">
                             Gestion Utilisateurs
                         </ResponsiveNavLink>
 
-                        <ResponsiveNavLink v-if="['admin', 'secretaire'].includes($page.props.auth?.user?.role)" :href="route('services.index')">
+                        <ResponsiveNavLink v-if="['admin', 'secretaire'].includes($page.props.auth?.user?.role)" :href="route('services.index')" :active="route().current('services.*')">
                             Espace Secrétariat
                         </ResponsiveNavLink>
+
+                        <template v-if="$page.props.auth?.user?.role === 'medecin'">
+                            <ResponsiveNavLink :href="route('doctor.planning')" :active="route().current('doctor.planning')">
+                                📅 Mon Planning
+                            </ResponsiveNavLink>
+                        </template>
+
+                        <ResponsiveNavLink v-if="$page.props.auth?.user?.role === 'patient'" :href="route('dashboard')">
+                            Mes Rendez-vous
+                        </ResponsiveNavLink>
+                    </div>
+
+                    <div class="pt-4 pb-1 border-t border-gray-200">
+                        <div class="px-4">
+                            <div class="font-medium text-base text-gray-800">
+                                {{ $page.props.auth.user.name }}
+                            </div>
+                            <div class="font-medium text-sm text-gray-500">{{ $page.props.auth.user.email }}</div>
+                        </div>
+
+                        <div class="mt-3 space-y-1">
+                            <ResponsiveNavLink :href="route('profile.edit')"> Profil </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('logout')" method="post" as="button">
+                                Déconnexion
+                            </ResponsiveNavLink>
+                        </div>
                     </div>
                 </div>
             </nav>

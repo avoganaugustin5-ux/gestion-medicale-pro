@@ -6,6 +6,7 @@ use App\Models\Clinic;
 use App\Models\Service;
 use App\Models\Doctor;
 use App\Models\Appointment;
+use App\Models\Patient;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -14,63 +15,61 @@ class PatientAppointmentController extends Controller
 {
     public function create()
     {
+        $patient = Patient::where('user_id', Auth::id())->first();
+        
+        $hasPendingAppointment = Appointment::where('patient_id', $patient->id ?? 0)
+            ->where('status', 'pending')
+            ->exists();
+
         return Inertia::render('Patient/Appointments/Create', [
             'clinics' => Clinic::all(),
             'services' => Service::all(),
+            'hasPendingAppointment' => $hasPendingAppointment,
         ]);
     }
 
     public function store(Request $request)
     {
+        $patient = Patient::where('user_id', Auth::id())->first();
+
         $validated = $request->validate([
             'clinic_id' => 'required|exists:clinics,id',
             'service_id' => 'required|exists:services,id',
             'doctor_id' => 'required|exists:doctors,id',
-            'date_rdv' => 'required|date|after:today',
-            'motif' => 'nullable|string|max:500',
+            'appointment_date' => 'required|date|after:today',
+            'reason' => 'nullable|string|max:500',
         ]);
+
+        // Protection : pas de double demande pending
+        if (Appointment::where('patient_id', $patient->id)->where('status', 'pending')->exists()) {
+            return redirect()->back()->with('error', 'Vous avez déjà une demande en cours.');
+        }
 
         Appointment::create([
-            'patient_id' => Auth::user()->id, // L'ID du patient connecté
+            'patient_id' => $patient->id,
             'doctor_id' => $validated['doctor_id'],
             'clinic_id' => $validated['clinic_id'],
-            'date_rdv' => $validated['date_rdv'],
-            'status' => 'en_attente', // Statut par défaut avant validation secrétaire
+            'service_id' => $validated['service_id'],
+            'appointment_date' => $validated['appointment_date'],
+            'reason' => $validated['reason'],
+            'status' => 'pending',
         ]);
 
-        return redirect()->route('dashboard')->with('message', 'Votre demande de rendez-vous a été envoyée !');
+        return redirect()->route('dashboard')->with('success', 'Votre demande a été envoyée !');
     }
 
-    // Méthode API pour charger les médecins selon le service choisi
-    public function getDoctorsByService(Service $service, Clinic $clinic)
+    public function updateStatus(Request $request, Appointment $appointment)
     {
-        return response()->json(
-            Doctor::where('service_id', $service->id)
-                  ->where('clinic_id', $clinic->id)
-                  ->get()
-        );
+        $validated = $request->validate([
+            'status' => 'required|in:confirmed,cancelled',
+            'cancel_reason' => 'nullable|string|max:255'
+        ]);
+
+        $appointment->update([
+            'status' => $validated['status'],
+            'cancel_reason' => $validated['cancel_reason'] ?? null
+        ]);
+
+        return redirect()->back()->with('success', 'Statut du rendez-vous mis à jour.');
     }
-
-    // Ajoute cette méthode à la fin de ton fichier PatientAppointmentController.php
-
-public function updateStatus(Request $request, Appointment $appointment)
-{
-    // Sécurité : Seule la secrétaire ou l'admin de la clinique peut valider
-    $this->authorize('update', $appointment); // Si tu as des Policies, sinon utilise un if simple
-
-    $validated = $request->validate([
-        'status' => 'required|in:confirmed,cancelled',
-    ]);
-
-    $appointment->update([
-        'status' => $validated['status']
-    ]);
-
-    $message = $validated['status'] === 'confirmed' 
-        ? 'Le rendez-vous a été confirmé !' 
-        : 'Le rendez-vous a été annulé.';
-
-    return redirect()->back()->with('message', $message);
-}
-
 }
