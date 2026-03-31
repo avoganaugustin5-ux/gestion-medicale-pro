@@ -6,71 +6,83 @@ use App\Models\User;
 use App\Models\Clinic;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Redirect;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Affiche la liste des utilisateurs et des cliniques pour l'administration.
+     */
+    public function index()
     {
-        $search = $request->input('search');
+        // Récupération de tous les utilisateurs avec leurs cliniques (Eager Loading)
+        $users = User::with('clinics')->orderBy('created_at', 'desc')->get();
+        
+        // CORRECTION ICI : Utilisation de 'name' au lieu de 'nom' pour correspondre à ta migration
+        $clinics = Clinic::select('id', 'name')->get();
 
-        return Inertia::render('Admin/Users', [
-            'users' => User::query()
-                ->with('clinic') // Important pour afficher le nom de la clinique
-                ->when($search, function ($query, $search) {
-                    $query->where('name', 'like', "%{$search}%")
-                          ->orWhere('email', 'like', "%{$search}%");
-                })
-                ->latest()
-                ->get(),
-            'clinics' => Clinic::all(['id', 'nom']), // On ne prend que le nécessaire
-            'filters' => $request->only(['search'])
+        return Inertia::render('Admin/Users/Index', [
+            'users' => $users,
+            'clinics' => $clinics
         ]);
     }
 
+    /**
+     * Met à jour le rôle d'un utilisateur.
+     */
     public function updateRole(Request $request, User $user)
     {
         $request->validate([
-            'role' => 'required|in:admin,medecin,secretaire,patient',
+            'role' => 'required|string|in:admin,medecin,secretaire,patient',
         ]);
 
         $user->update(['role' => $request->role]);
-        return Redirect::back()->with('success', 'Le rôle de ' . $user->name . ' a été mis à jour.');
+
+        return back()->with('message', 'Rôle mis à jour avec succès.');
     }
 
-    public function assignments(Request $request)
+    /**
+     * Affiche la page des affectations (Personnel <-> Clinique).
+     */
+    public function assignments()
     {
-        $search = $request->input('search');
+        $users = User::whereIn('role', ['medecin', 'secretaire'])->with('clinics')->get();
+        $clinics = Clinic::select('id', 'name')->get(); // Correction 'name' ici aussi
 
-        return Inertia::render('Admin/Assignments', [
-            'staff' => User::whereIn('role', ['medecin', 'secretaire'])
-                ->with('clinic')
-                ->when($search, function ($query, $search) {
-                    $query->where('name', 'like', "%{$search}%")
-                          ->orWhere('email', 'like', "%{$search}%");
-                })
-                ->get(),
-            'clinics' => Clinic::all(),
-            'filters' => $request->only(['search'])
+        return Inertia::render('Admin/Assignments/Index', [
+            'users' => $users,
+            'clinics' => $clinics
         ]);
     }
 
+    /**
+     * Lie un utilisateur (médecin/secrétaire) à une clinique.
+     */
     public function storeAssignment(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'user_id' => 'required|exists:users,id',
             'clinic_id' => 'required|exists:clinics,id',
         ]);
 
-        $user = User::findOrFail($validated['user_id']);
-        $user->update(['clinic_id' => $validated['clinic_id']]);
+        $user = User::findOrFail($request->user_id);
+        
+        // syncWithoutDetaching évite les doublons dans la table pivot
+        $user->clinics()->syncWithoutDetaching([$request->clinic_id]);
 
-        return Redirect::back()->with('success', "Affectation réussie pour " . $user->name);
+        return back()->with('message', 'Affectation réussie.');
     }
 
-    public function detachAssignment(User $user)
+    /**
+     * Retire un utilisateur d'une clinique.
+     */
+    public function detachAssignment(Request $request, User $user)
     {
-        $user->update(['clinic_id' => null]);
-        return Redirect::back()->with('success', "L'agent a été détaché avec succès.");
+        $request->validate([
+            'clinic_id' => 'required|exists:clinics,id',
+        ]);
+
+        $user->clinics()->detach($request->clinic_id);
+
+        return back()->with('message', 'Affectation retirée.');
     }
 }
