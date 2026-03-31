@@ -8,7 +8,7 @@ import NavLink from '@/Components/NavLink.vue';
 
 const page = usePage();
 
-// 1. Récupération des données utilisateur (Ton code sécurisé)
+// 1. Récupération des données utilisateur
 const user = computed(() => {
     return page.props.auth?.user || { name: 'Utilisateur', role: '' };
 });
@@ -20,7 +20,7 @@ const isRole = (roleName) => {
     return currentRole === targetRole;
 };
 
-// 3. Diagnostic Console pour le projet AKASUTS
+// 3. Diagnostic Console
 onMounted(() => {
     console.log("=== DIAGNOSTIC AKASUTS ===");
     console.log("Données Auth reçues :", page.props.auth);
@@ -44,6 +44,14 @@ onMounted(() => {
                         <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                             <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
                                 Tableau de bord
+                            </NavLink>
+
+                            <NavLink 
+                                v-if="isRole('medecin')" 
+                                :href="route('doctor.availabilities.index')"
+                                :active="route().current('doctor.availabilities.*')"
+                            >
+                                Mon Planning
                             </NavLink>
 
                             <NavLink 

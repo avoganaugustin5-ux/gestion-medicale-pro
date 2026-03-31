@@ -15,7 +15,7 @@ const props = defineProps({
     clinics: Array,
     appointments: Array,
     activities: Array,
-    stats: Object, // NOUVEAU
+    stats: Object,
     filters: Object,
     userRole: String
 });
@@ -49,10 +49,17 @@ watch(search, debounce((value) => {
                 <h2 class="font-black text-2xl text-slate-800 tracking-tight">
                     {{ roleLabel }}
                 </h2>
-                <Link v-if="role === 'admin'" :href="route('clinics.create')" 
-                    class="bg-indigo-600 px-4 py-2 text-white text-xs font-bold uppercase rounded-xl">
-                    + Nouvelle Clinique
-                </Link>
+                
+                <div>
+                    <Link v-if="role === 'admin'" :href="route('clinics.create')" 
+                        class="bg-indigo-600 px-4 py-2 text-white text-xs font-bold uppercase rounded-xl shadow-lg hover:bg-indigo-700 transition">
+                        + Nouvelle Clinique
+                    </Link>
+                    <Link v-if="role === 'medecin'" :href="route('doctor.availabilities.index')" 
+                        class="bg-indigo-600 px-4 py-2 text-white text-xs font-bold uppercase rounded-xl shadow-lg hover:bg-indigo-700 transition">
+                        📅 Gérer mon planning
+                    </Link>
+                </div>
             </div>
         </template>
 
@@ -60,14 +67,14 @@ watch(search, debounce((value) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <div class="bg-white rounded-3xl shadow-sm p-8 mb-8 border border-slate-100">
-                    <h3 class="text-3xl font-black text-slate-900 uppercase">Bienvenue, {{ user?.name }}</h3>
-                    <p class="text-slate-500 font-medium">Portail UTS Santé : Gestion en temps réel.</p>
+                    <h3 class="text-3xl font-black text-slate-900 uppercase tracking-tighter">Bienvenue, {{ user?.name }}</h3>
+                    <p class="text-slate-500 font-medium italic">Système AKASUTS : Thomas Sankara University.</p>
                 </div>
 
                 <div v-if="role !== 'patient'" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-indigo-500">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aujourd'hui</p>
-                        <p class="text-3xl font-black text-slate-800">{{ stats.today_appointments || 0 }}</p>
+                        <p class="text-3xl font-black text-slate-800">{{ stats?.today_appointments || 0 }}</p>
                         <p class="text-xs text-slate-500">Rendez-vous programmés</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-emerald-500">
@@ -75,13 +82,13 @@ watch(search, debounce((value) => {
                             {{ role === 'admin' ? 'Total Établissements' : 'Patients suivis' }}
                         </p>
                         <p class="text-3xl font-black text-slate-800">
-                            {{ role === 'admin' ? stats.total_clinics : stats.total_patients || 0 }}
+                            {{ role === 'admin' ? stats?.total_clinics : stats?.total_patients || 0 }}
                         </p>
                         <p class="text-xs text-slate-500">Inscrits sur la plateforme</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-orange-500">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activités</p>
-                        <p class="text-3xl font-black text-slate-800">{{ activities.length }}</p>
+                        <p class="text-3xl font-black text-slate-800">{{ activities?.length || 0 }}</p>
                         <p class="text-xs text-slate-500">Dernières actions enregistrées</p>
                     </div>
                 </div>
