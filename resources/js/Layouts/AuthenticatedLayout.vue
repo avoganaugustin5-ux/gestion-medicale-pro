@@ -8,19 +8,19 @@ import NavLink from '@/Components/NavLink.vue';
 
 const page = usePage();
 
-// 1. Récupération ultra-sécurisée des données utilisateur
+// 1. Récupération des données utilisateur (Ton code sécurisé)
 const user = computed(() => {
     return page.props.auth?.user || { name: 'Utilisateur', role: '' };
 });
 
-// 2. Logique de rôle robuste (insensible à la casse et aux espaces)
+// 2. Logique de rôle robuste
 const isRole = (roleName) => {
     const currentRole = String(user.value?.role || '').toLowerCase().trim();
     const targetRole = String(roleName).toLowerCase().trim();
     return currentRole === targetRole;
 };
 
-// 3. Diagnostic Console : Pour vérifier ce que Railway reçoit réellement
+// 3. Diagnostic Console pour le projet AKASUTS
 onMounted(() => {
     console.log("=== DIAGNOSTIC AKASUTS ===");
     console.log("Données Auth reçues :", page.props.auth);
@@ -55,6 +55,14 @@ onMounted(() => {
                             </NavLink>
 
                             <NavLink 
+                                v-if="isRole('admin')" 
+                                :href="route('admin.assignments.index')" 
+                                :active="route().current('admin.assignments.*')"
+                            >
+                                Affectations
+                            </NavLink>
+
+                            <NavLink 
                                 v-if="isRole('admin') || isRole('secretaire')"
                                 :href="route('services.index')" 
                                 :active="route().current('services.*')"
@@ -77,6 +85,7 @@ onMounted(() => {
                                         </button>
                                     </span>
                                 </template>
+
                                 <template #content>
                                     <DropdownLink :href="route('profile.edit')"> Mon Profil </DropdownLink>
                                     <DropdownLink :href="route('logout')" method="post" as="button"> Déconnexion </DropdownLink>
@@ -94,6 +103,8 @@ onMounted(() => {
             </div>
         </header>
 
-        <main><slot /></main>
+        <main>
+            <slot />
+        </main>
     </div>
 </template>

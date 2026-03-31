@@ -36,7 +36,8 @@ const submitSecretary = () => {
 
 const detachClinic = (userId) => {
     if (confirm("Détacher l'agent de la clinique ?")) {
-        router.delete(route('admin.assignments.clinic.detach', userId));
+        // Utiliser un objet pour correspondre au paramètre {user} de la route
+        router.delete(route('admin.assignments.clinic.detach', { user: userId }));
     }
 };
 

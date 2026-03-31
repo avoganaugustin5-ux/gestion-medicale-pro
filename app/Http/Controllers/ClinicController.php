@@ -74,24 +74,29 @@ class ClinicController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:500',
-        ]);
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'description' => 'nullable|string|max:5000',
+    ]);
 
-        $clinic = Clinic::create($request->only('name', 'description'));
+    // On fusionne les données du formulaire avec l'ID de l'admin connecté
+    $clinic = Clinic::create([
+        'name' => $request->name,
+        'description' => $request->description,
+        'user_id' => Auth::id(), // Ajout crucial pour corriger l'erreur 1364
+    ]);
 
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'user_name' => Auth::user()->name,
-            'action' => 'Création',
-            'target' => 'Clinique: ' . $clinic->name,
-            'clinic_name' => 'Administration Centrale'
-        ]);
+    ActivityLog::create([
+        'user_id' => Auth::id(),
+        'user_name' => Auth::user()->name,
+        'action' => 'Création',
+        'target' => 'Clinique: ' . $clinic->name,
+        'clinic_name' => 'Administration Centrale'
+    ]);
 
-        return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
-    }
+    return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
+}
 
     public function show(Request $request, Clinic $clinic)
     {

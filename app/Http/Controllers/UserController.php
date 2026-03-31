@@ -61,15 +61,19 @@ class UserController extends Controller
     }
 
     public function storeClinicAssignment(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'clinic_id' => 'required|exists:clinics,id',
-        ]);
-        $user = User::findOrFail($request->user_id);
-        $user->clinics()->sync([$request->clinic_id]);
-        return back()->with('message', 'Affectation clinique réussie.');
-    }
+{
+    $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'clinic_id' => 'required|exists:clinics,id',
+    ]);
+
+    $user = User::findOrFail($request->user_id);
+    
+    // Si tu as une colonne clinic_id dans la table users (le plus probable ici) :
+    $user->update(['clinic_id' => $request->clinic_id]);
+
+    return back()->with('message', 'Affectation clinique réussie.');
+}
 
     public function storeSecretaryAssignment(Request $request)
     {
@@ -88,10 +92,12 @@ class UserController extends Controller
 
     // LIGNE 81 CORRIGÉE ICI : Ajout du $ devant user
     public function detachClinic(User $user)
-    {
-        $user->clinics()->detach();
-        return back()->with('message', 'Agent détaché de la clinique.');
-    }
+{
+    // On remet simplement le clinic_id à null
+    $user->update(['clinic_id' => null]);
+    
+    return back()->with('message', 'Agent détaché de la clinique.');
+}
 
     public function detachSecretary($id)
     {
