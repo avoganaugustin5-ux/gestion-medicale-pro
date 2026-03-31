@@ -13,12 +13,20 @@ return new class extends Migration
     {
         Schema::create('availabilities', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Le médecin
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('clinic_id')->constrained()->onDelete('cascade');
             $table->date('date');
             $table->time('start_time');
             $table->time('end_time');
             $table->boolean('is_booked')->default(false);
+    
+            // NOUVEAU : Pour gérer les couleurs dans FullCalendar
+            // 'available' (vert), 'cancelled' (rouge - imprévu)
+            $table->string('status')->default('available'); 
+    
+            // NOUVEAU : Pour que le médecin explique l'imprévu
+            $table->text('note')->nullable(); 
+
             $table->timestamps();
         });
     }

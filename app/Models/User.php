@@ -13,17 +13,9 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'sexe',
-        'nationalite',
-        'dateNaissance',
-        'adresse',
-        'numeroTelephone',
-        'imageProfil',
-        'clinic_id', 
+        'name', 'email', 'password', 'role', 'sexe',
+        'nationalite', 'dateNaissance', 'adresse',
+        'numeroTelephone', 'imageProfil', 'clinic_id', 
     ];
 
     /**
@@ -42,11 +34,28 @@ class User extends Authenticatable
         return $this->belongsTo(Clinic::class);
     }
 
+    /**
+     * RELATION MÉDECIN ↔ SECRÉTAIRE
+     */
+    public function secretary()
+    {
+        return $this->belongsToMany(User::class, 'doctor_secretary', 'doctor_id', 'secretary_id');
+    }
+
+    public function doctors()
+    {
+        return $this->belongsToMany(User::class, 'doctor_secretary', 'secretary_id', 'doctor_id');
+    }
+
+    // Vérifications de rôles
     public function isAdmin() { return strtolower($this->role) === 'admin'; }
     public function isMedecin() { return strtolower($this->role) === 'medecin'; }
     public function isSecretaire() { return strtolower($this->role) === 'secretaire'; } 
     public function isPatient() { return strtolower($this->role) === 'patient'; }
 
+    /**
+     * Notification de réinitialisation de mot de passe (UTS Santé)
+     */
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new class($token) extends ResetPassword {

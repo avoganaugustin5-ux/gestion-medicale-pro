@@ -7,6 +7,7 @@ use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\AvailabilityController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -26,12 +27,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
         Route::patch('/admin/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.updateRole');
 
-        // GESTION DES AFFECTATIONS (NOUVEAU)
+        // Gestion des Affectations
         Route::get('/admin/assignments', [UserController::class, 'assignments'])->name('admin.assignments.index');
         Route::post('/admin/assignments/clinic', [UserController::class, 'storeClinicAssignment'])->name('admin.assignments.clinic.store');
         Route::post('/admin/assignments/doctor-secretary', [UserController::class, 'storeSecretaryAssignment'])->name('admin.assignments.secretary.store');
         Route::delete('/admin/assignments/clinic/{user}', [UserController::class, 'detachClinic'])->name('admin.assignments.clinic.detach');
         Route::delete('/admin/assignments/secretary/{id}', [UserController::class, 'detachSecretary'])->name('admin.assignments.secretary.detach');
+    });
+
+    // SECTION MÉDECIN (Planning & Imprévus)
+    Route::middleware(['role:medecin'])->group(function () {
+        Route::get('/doctor/schedule', [AvailabilityController::class, 'index'])->name('doctor.availabilities.index');
+        Route::post('/doctor/schedule', [AvailabilityController::class, 'store'])->name('doctor.availabilities.store');
+        Route::patch('/doctor/schedule/{availability}', [AvailabilityController::class, 'update'])->name('doctor.availabilities.update');
+        Route::delete('/doctor/schedule/{availability}', [AvailabilityController::class, 'destroy'])->name('doctor.availabilities.destroy');
+        Route::get('/doctor/schedule/export', [AvailabilityController::class, 'exportPdf'])->name('doctor.availabilities.export');
     });
 
     // SECTION SERVICES
