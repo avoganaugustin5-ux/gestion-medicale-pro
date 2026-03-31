@@ -22,7 +22,8 @@ class UserController extends Controller
         ]);
     }
 
-    public function updateRole(Request $request, User user)
+    // LIGNE 25 CORRIGÉE ICI : Ajout du $ devant user
+    public function updateRole(Request $request, User $user)
     {
         $request->validate(['role' => 'required|string|in:admin,medecin,secretaire,patient']);
         $user->update(['role' => $request->role]);
@@ -85,6 +86,7 @@ class UserController extends Controller
         return back()->with('message', 'Secrétaire affectée au médecin.');
     }
 
+    // LIGNE 81 CORRIGÉE ICI : Ajout du $ devant user
     public function detachClinic(User $user)
     {
         $user->clinics()->detach();
