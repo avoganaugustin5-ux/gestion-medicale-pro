@@ -11,10 +11,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Configuration des Proxies pour Railway
+        // 1. Configuration des Proxies pour Railway
         $middleware->trustProxies(at: '*');
 
-        // Tes alias existants
+        // 2. ACTIVATION DU FLUX DE DONNÉES INERTIA (INDISPENSABLE)
+        // C'est cette ligne qui permet d'envoyer le nom et le rôle à ton interface Vue
+        $middleware->web(append: [
+            \App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
+
+        // 3. Tes alias existants
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'clinic.access' => \App\Http\Middleware\EnsureUserBelongsToClinic::class, 
