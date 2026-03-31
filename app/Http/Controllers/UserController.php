@@ -5,21 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Clinic;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class UserController extends Controller
 {
-    /**
-     * Affiche la liste des utilisateurs (Gestion Utilisateurs)
-     */
     public function index()
     {
         $users = User::with('clinics')->orderBy('created_at', 'desc')->get();
-        
-        // Correction 'name' pour la base de données
         $clinics = Clinic::select('id', 'name')->get();
 
-        // Correction du chemin : pointe vers Admin/Users.vue
         return Inertia::render('Admin/Users', [
             'users' => $users,
             'clinics' => $clinics,
@@ -27,49 +22,78 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Affiche la page des affectations (Personnel & Affectations)
-     */
+    public function updateRole(Request $request, User user)
+    {
+        $request->validate(['role' => 'required|string|in:admin,medecin,secretaire,patient']);
+        $user->update(['role' => $request->role]);
+        return back();
+    }
+
     public function assignments()
     {
-        // On récupère le personnel (médecins et secrétaires) avec leur clinique
+        // 1. Pour l'affectation Clinique
         $staff = User::whereIn('role', ['medecin', 'secretaire'])->with('clinics')->get();
         $clinics = Clinic::select('id', 'name')->get();
 
-        // Correction du chemin : pointe vers Admin/Assignments.vue
-        // Note : On envoie 'staff' car c'est ce que ton script Vue attend en props
+        // 2. Pour l'affectation Secrétaire <-> Médecin
+        $doctors = User::where('role', 'medecin')->get();
+        $secretaries = User::where('role', 'secretaire')->get();
+
+        // 3. Liste des affectations secrétaires actuelles
+        $currentAssignments = DB::table('doctor_secretary')
+            ->join('users as doctors', 'doctor_secretary.doctor_id', '=', 'doctors.id')
+            ->join('users as secretaries', 'doctor_secretary.secretary_id', '=', 'secretaries.id')
+            ->select(
+                'doctor_secretary.id',
+                'doctors.name as doctor_name',
+                'secretaries.name as secretary_name'
+            )
+            ->get();
+
         return Inertia::render('Admin/Assignments', [
             'staff' => $staff,
-            'clinics' => $clinics
+            'clinics' => $clinics,
+            'doctors' => $doctors,
+            'secretaries' => $secretaries,
+            'currentAssignments' => $currentAssignments
         ]);
     }
 
-    /**
-     * Logique pour lier un agent à une clinique
-     */
-    public function storeAssignment(Request $request)
+    public function storeClinicAssignment(Request $request)
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'clinic_id' => 'required|exists:clinics,id',
         ]);
-
         $user = User::findOrFail($request->user_id);
-        
-        // Utilisation de sync pour mettre à jour l'affectation
         $user->clinics()->sync([$request->clinic_id]);
-
-        return back()->with('message', 'Agent affecté avec succès.');
+        return back()->with('message', 'Affectation clinique réussie.');
     }
 
-    /**
-     * Logique pour détacher un agent
-     */
-    public function detachAssignment(Request $request, $userId)
+    public function storeSecretaryAssignment(Request $request)
     {
-        $user = User::findOrFail($userId);
-        $user->clinics()->detach();
+        $request->validate([
+            'doctor_id' => 'required|exists:users,id',
+            'secretary_id' => 'required|exists:users,id',
+        ]);
 
+        DB::table('doctor_secretary')->updateOrInsert(
+            ['doctor_id' => $request->doctor_id],
+            ['secretary_id' => $request->secretary_id, 'created_at' => now()]
+        );
+
+        return back()->with('message', 'Secrétaire affectée au médecin.');
+    }
+
+    public function detachClinic(User $user)
+    {
+        $user->clinics()->detach();
         return back()->with('message', 'Agent détaché de la clinique.');
+    }
+
+    public function detachSecretary($id)
+    {
+        DB::table('doctor_secretary')->where('id', $id)->delete();
+        return back()->with('message', 'Liaison médecin-secrétaire supprimée.');
     }
 }

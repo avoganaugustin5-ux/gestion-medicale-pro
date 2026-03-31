@@ -7,9 +7,6 @@ use App\Http\Controllers\ClinicController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ServiceController;
-use App\Http\Controllers\SecretaryController;
-use App\Http\Controllers\PatientAppointmentController;
-use App\Http\Controllers\ConsultationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -24,8 +21,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/clinics/create', [ClinicController::class, 'create'])->name('clinics.create');
         Route::post('/clinics', [ClinicController::class, 'store'])->name('clinics.store');
+        
+        // Gestion des Utilisateurs
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
         Route::patch('/admin/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.updateRole');
+
+        // GESTION DES AFFECTATIONS (NOUVEAU)
+        Route::get('/admin/assignments', [UserController::class, 'assignments'])->name('admin.assignments.index');
+        Route::post('/admin/assignments/clinic', [UserController::class, 'storeClinicAssignment'])->name('admin.assignments.clinic.store');
+        Route::post('/admin/assignments/doctor-secretary', [UserController::class, 'storeSecretaryAssignment'])->name('admin.assignments.secretary.store');
+        Route::delete('/admin/assignments/clinic/{user}', [UserController::class, 'detachClinic'])->name('admin.assignments.clinic.detach');
+        Route::delete('/admin/assignments/secretary/{id}', [UserController::class, 'detachSecretary'])->name('admin.assignments.secretary.detach');
     });
 
     // SECTION SERVICES
