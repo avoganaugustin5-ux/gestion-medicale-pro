@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -8,14 +8,32 @@ import NavLink from '@/Components/NavLink.vue';
 
 const page = usePage();
 
-// Accès sécurisé : si auth ou user manque, on renvoie un objet vide
-const user = computed(() => page.props.auth?.user || {});
+/**
+ * Récupération sécurisée de l'utilisateur.
+ * Si auth.user est manquant, on renvoie un objet par défaut pour éviter les erreurs "undefined".
+ */
+const user = computed(() => {
+    return page.props.auth?.user || { name: 'Utilisateur', role: '' };
+});
 
-// Vérification du rôle avec conversion forcée en minuscule
+/**
+ * Fonction de vérification de rôle ultra-robuste.
+ * Elle gère les cas où le rôle serait nul ou écrit différemment (ex: "Admin" vs "admin").
+ */
 const isRole = (roleName) => {
-    const currentRole = String(user.value?.role || '').toLowerCase();
-    return currentRole === String(roleName).toLowerCase();
+    const currentRole = String(user.value?.role || '').toLowerCase().trim();
+    const targetRole = String(roleName).toLowerCase().trim();
+    return currentRole === targetRole;
 };
+
+// Debug console : permet de voir exactement ce que le site reçoit comme rôle au chargement
+onMounted(() => {
+    if (!page.props.auth?.user) {
+        console.warn("Attention : Aucune donnée utilisateur reçue via Inertia.");
+    } else {
+        console.log("Utilisateur connecté :", user.value.name, "| Rôle :", user.value.role);
+    }
+});
 </script>
 
 <template>
@@ -59,13 +77,14 @@ const isRole = (roleName) => {
                                 <template #trigger>
                                     <span class="inline-flex rounded-md">
                                         <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-slate-600 bg-white hover:text-indigo-600 focus:outline-none transition">
-                                            {{ user.name || 'Utilisateur' }}
+                                            {{ user.name }}
                                             <svg class="ms-2 -me-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                             </svg>
                                         </button>
                                     </span>
                                 </template>
+
                                 <template #content>
                                     <DropdownLink :href="route('profile.edit')"> Mon Profil </DropdownLink>
                                     <DropdownLink :href="route('logout')" method="post" as="button"> Déconnexion </DropdownLink>
@@ -83,6 +102,8 @@ const isRole = (roleName) => {
             </div>
         </header>
 
-        <main><slot /></main>
+        <main>
+            <slot />
+        </main>
     </div>
 </template>
