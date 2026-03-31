@@ -10,8 +10,14 @@ import { Link, usePage } from '@inertiajs/vue3';
 const showingNavigationDropdown = ref(false);
 const page = usePage();
 
-// Accès ultra-sécurisé : si auth ou user manque, on renvoie null au lieu de planter
-const user = computed(() => page.props.auth?.user || null);
+// Accès sécurisé à l'utilisateur
+const user = computed(() => page.props.auth?.user);
+
+// Fonction pour vérifier le rôle sans se soucier des majuscules/minuscules
+const hasRole = (role) => {
+    if (!user.value?.role) return false;
+    return user.value.role.toLowerCase() === role.toLowerCase();
+};
 </script>
 
 <template>
@@ -32,7 +38,7 @@ const user = computed(() => page.props.auth?.user || null);
                             </NavLink>
 
                             <NavLink 
-                                v-if="user?.role === 'admin'" 
+                                v-if="hasRole('admin')" 
                                 :href="route('admin.users.index')"
                                 :active="route().current('admin.users.*')"
                             >
@@ -40,21 +46,23 @@ const user = computed(() => page.props.auth?.user || null);
                             </NavLink>
 
                             <NavLink 
-                                v-if="['admin', 'secretaire'].includes(user?.role)"
+                                v-if="hasRole('admin') || hasRole('secretaire')"
                                 :href="route('services.index')" 
                                 :active="route().current('services.*')"
                             >
                                 Espace Secrétariat
                             </NavLink>
 
-                            <template v-if="user?.role === 'medecin'">
-                                <NavLink :href="route('dashboard')" :active="route().current('doctor.planning')">
-                                    📅 Mon Planning
-                                </NavLink>
-                            </template>
+                            <NavLink 
+                                v-if="hasRole('medecin')"
+                                :href="route('dashboard')" 
+                                :active="route().current('doctor.planning')"
+                            >
+                                📅 Mon Planning
+                            </NavLink>
 
                             <NavLink 
-                                v-if="user?.role === 'patient'"
+                                v-if="hasRole('patient')"
                                 :href="route('dashboard')" 
                                 :active="route().current('appointments.*')"
                             >
