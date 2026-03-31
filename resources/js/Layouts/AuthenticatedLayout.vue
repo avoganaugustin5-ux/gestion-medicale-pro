@@ -8,31 +8,24 @@ import NavLink from '@/Components/NavLink.vue';
 
 const page = usePage();
 
-/**
- * Récupération sécurisée de l'utilisateur.
- * Si auth.user est manquant, on renvoie un objet par défaut pour éviter les erreurs "undefined".
- */
+// 1. Récupération ultra-sécurisée des données utilisateur
 const user = computed(() => {
     return page.props.auth?.user || { name: 'Utilisateur', role: '' };
 });
 
-/**
- * Fonction de vérification de rôle ultra-robuste.
- * Elle gère les cas où le rôle serait nul ou écrit différemment (ex: "Admin" vs "admin").
- */
+// 2. Logique de rôle robuste (insensible à la casse et aux espaces)
 const isRole = (roleName) => {
     const currentRole = String(user.value?.role || '').toLowerCase().trim();
     const targetRole = String(roleName).toLowerCase().trim();
     return currentRole === targetRole;
 };
 
-// Debug console : permet de voir exactement ce que le site reçoit comme rôle au chargement
+// 3. Diagnostic Console : Pour vérifier ce que Railway reçoit réellement
 onMounted(() => {
-    if (!page.props.auth?.user) {
-        console.warn("Attention : Aucune donnée utilisateur reçue via Inertia.");
-    } else {
-        console.log("Utilisateur connecté :", user.value.name, "| Rôle :", user.value.role);
-    }
+    console.log("=== DIAGNOSTIC AKASUTS ===");
+    console.log("Données Auth reçues :", page.props.auth);
+    console.log("Rôle détecté :", user.value.role);
+    console.log("==========================");
 });
 </script>
 
@@ -84,7 +77,6 @@ onMounted(() => {
                                         </button>
                                     </span>
                                 </template>
-
                                 <template #content>
                                     <DropdownLink :href="route('profile.edit')"> Mon Profil </DropdownLink>
                                     <DropdownLink :href="route('logout')" method="post" as="button"> Déconnexion </DropdownLink>
@@ -102,8 +94,6 @@ onMounted(() => {
             </div>
         </header>
 
-        <main>
-            <slot />
-        </main>
+        <main><slot /></main>
     </div>
 </template>

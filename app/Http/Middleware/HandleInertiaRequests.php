@@ -19,10 +19,15 @@ class HandleInertiaRequests extends Middleware
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $request->user() ? [
-                    'id' => $request->user()->id,
+                    'id'   => $request->user()->id,
                     'name' => $request->user()->name,
-                    'role' => $request->user()->role, // On force l'extraction du rôle ici
+                    'role' => $request->user()->role, // CRUCIAL : C'est cette ligne qui débloque tes onglets
                 ] : null,
+            ],
+            // On ajoute aussi les messages flash pour la robustesse
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
             ],
         ]);
     }
