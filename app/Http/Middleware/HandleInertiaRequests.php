@@ -20,15 +20,14 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             
-            // Partage de l'utilisateur avec une structure par défaut pour éviter le "undefined"
             'auth' => [
                 'user' => $request->user() ? [
-                    'id'    => $request->user()->id,
-                    'name'  => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'role'  => $request->user()->role, 
-                    'sexe'  => $request->user()->sexe,
-                    'image' => $request->user()->imageProfil,
+                    'id'        => $request->user()->id,
+                    'name'      => $request->user()->name,
+                    'email'     => $request->user()->email,
+                    'role'      => $request->user()->role, 
+                    'sexe'      => $request->user()->sexe,
+                    'image'     => $request->user()->imageProfil,
                     'clinic_id' => $request->user()->clinic_id,
                 ] : null,
             ],
