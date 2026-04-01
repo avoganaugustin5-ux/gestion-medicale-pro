@@ -8,6 +8,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -19,36 +22,76 @@ class User extends Authenticatable
         'numeroTelephone', 'imageProfil', 'clinic_id', 
     ];
 
-    // Indispensable pour le Dashboard Patient
+    // --- RELATIONS ---
+
+    // Relation pour le profil Patient
     public function patient(): HasOne
     {
         return $this->hasOne(Patient::class);
     }
 
-    public function clinics()
+    // AJOUTÉ : Relation pour le profil Docteur (CRUCIAL pour AKASUTS)
+    public function doctor(): HasOne
+    {
+        return $this->hasOne(Doctor::class);
+    }
+
+    public function clinics(): HasMany
     {
         return $this->hasMany(Clinic::class);
     }
 
-    public function clinic()
+    public function clinic(): BelongsTo
     {
         return $this->belongsTo(Clinic::class);
     }
 
-    public function secretary()
+    // Relations pour les secrétaires (Many-to-Many entre Users)
+    public function secretaries(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'doctor_id', 'secretary_id');
     }
 
-    public function doctors()
+    public function doctors(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'secretary_id', 'doctor_id');
     }
+
+    // --- LOGIQUE DE RÔLES ---
 
     public function isAdmin() { return strtolower($this->role) === 'admin'; }
     public function isMedecin() { return strtolower($this->role) === 'medecin'; }
     public function isSecretaire() { return strtolower($this->role) === 'secretaire'; } 
     public function isPatient() { return strtolower($this->role) === 'patient'; }
+
+    public function hasRole($role)
+    {
+        return strtolower($this->role) === strtolower($role);
+    }
+
+    // --- AUTOMATISATION (BOOTHED) ---
+
+    protected static function booted()
+    {
+        static::created(function ($user) {
+            // Création automatique du profil métier selon le rôle
+            if ($user->role === 'medecin') {
+                $user->doctor()->create([
+                    'name' => $user->name,
+                    'specialty' => 'À définir',
+                    'clinic_id' => $user->clinic_id ?? 1,
+                ]);
+            }
+
+            if ($user->role === 'patient') {
+                $user->patient()->create([
+                    'nom' => $user->name,
+                ]);
+            }
+        });
+    }
+
+    // --- NOTIFICATIONS & SÉCURITÉ ---
 
     public function sendPasswordResetNotification($token)
     {
@@ -75,23 +118,4 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
-    public function hasRole($role)
-    {
-        return strtolower($this->role) === strtolower($role);
-    }
-
-    protected static function booted()
-    {
-        static::created(function ($user) {
-            if ($user->role === 'medecin') {
-                $user->doctor()->create([
-                    'name' => $user->name,
-                    'specialty' => 'À définir',
-                    'clinic_id' => $user->clinic_id ?? 1,
-                ]);
-            }
-        });
-    }
-
 }
