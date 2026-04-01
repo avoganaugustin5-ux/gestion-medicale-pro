@@ -14,59 +14,70 @@ use Inertia\Inertia;
 class ClinicController extends Controller
 {
     public function index(Request $request)
-    {
-        $user = Auth::user();
-        $search = $request->input('search');
-        $role = strtolower($user->role ?? 'guest');
-        $today = now()->toDateString();
+{
+    $user = Auth::user();
+    $search = $request->input('search');
+    $role = strtolower($user->role ?? 'guest');
+    $today = now()->toDateString();
 
-        $clinicsQuery = Clinic::query();
-        if ($role === 'admin') {
-            $clinicsQuery->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
-            });
-        } elseif (in_array($role, ['secretaire', 'medecin'])) {
-            $clinicsQuery->where('id', $user->clinic_id);
-        }
-
-        $clinics = $clinicsQuery->withCount(['patients', 'appointments'])->get();
-
-        $stats = [];
-        if ($role === 'admin') {
-            $stats = [
-                'total_clinics' => Clinic::count(),
-                'total_users' => User::count(),
-                'total_appointments' => Appointment::count(),
-                'today_appointments' => Appointment::whereDate('appointment_date', $today)->count(),
-            ];
-        } else {
-            $stats = [
-                'today_appointments' => Appointment::where('clinic_id', $user->clinic_id)->whereDate('appointment_date', $today)->count(),
-                'total_patients' => Patient::count(), 
-            ];
-        }
-
-        $appointments = Appointment::with(['patient.user', 'doctor', 'clinic', 'service'])
-            ->when($role !== 'admin', fn($q) => $q->where('clinic_id', $user->clinic_id))
-            ->latest()->take(10)->get();
-
-        $activities = ActivityLog::latest()->take(8)->get()->map(fn($log) => [
-            'id' => $log->id,
-            'user_name' => $log->user_name,
-            'action' => $log->action,
-            'target' => $log->target,
-            'time' => $log->created_at->diffForHumans(),
-        ]);
-
-        return Inertia::render('Dashboard', [
-            'clinics' => $clinics,
-            'appointments' => $appointments,
-            'activities' => $activities,
-            'stats' => $stats,
-            'filters' => $request->only(['search']),
-            'userRole' => $role,
-        ]);
+    // Gestion des cliniques selon le rôle
+    $clinicsQuery = Clinic::query();
+    if ($role === 'admin') {
+        $clinicsQuery->when($search, function ($query, $search) {
+            $query->where('name', 'like', "%{$search}%");
+        });
+    } elseif (in_array($role, ['secretaire', 'medecin'])) {
+        $clinicsQuery->where('id', $user->clinic_id);
     }
+    $clinics = $clinicsQuery->withCount(['patients', 'appointments'])->get();
+
+    // Statistiques
+    $stats = [];
+    if ($role === 'admin') {
+        $stats = [
+            'total_clinics' => Clinic::count(),
+            'total_users' => User::count(),
+            'total_appointments' => Appointment::count(),
+            'today_appointments' => Appointment::whereDate('appointment_date', $today)->count(),
+        ];
+    } else {
+        $stats = [
+            'today_appointments' => Appointment::where('clinic_id', $user->clinic_id)
+                ->whereDate('appointment_date', $today)->count(),
+            'total_patients' => Patient::count(), 
+        ];
+    }
+
+    // Récupération des rendez-vous (Filtrage par patient si nécessaire)
+    $appointments = Appointment::with(['patient.user', 'doctor.user', 'clinic', 'service'])
+        ->when($role === 'patient', function($q) use ($user) {
+            return $q->where('patient_id', $user->patient?->id);
+        })
+        ->when(in_array($role, ['secretaire', 'medecin']), function($q) use ($user) {
+            return $q->where('clinic_id', $user->clinic_id);
+        })
+        ->latest()->take(10)->get();
+
+    // Journal d'activité
+    $activities = ActivityLog::latest()->take(8)->get()->map(fn($log) => [
+        'id' => $log->id,
+        'user_name' => $log->user_name,
+        'action' => $log->action,
+        'target' => $log->target,
+        'time' => $log->created_at->diffForHumans(),
+    ]);
+
+    return Inertia::render('Dashboard', [
+        'clinics' => $clinics,
+        'appointments' => $appointments,
+        'activities' => $activities,
+        'stats' => $stats,
+        'filters' => $request->only(['search']),
+        'userRole' => $role,
+        // CRUCIAL : Transmission du profil patient complet pour les liens
+        'patient' => $user->patient ? $user->patient()->with('clinic')->first() : null,
+    ]);
+}
 
     public function create()
     {
