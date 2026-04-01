@@ -18,10 +18,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
-    // ROUTES PATIENT (Spécifiques)
+    // ROUTES PATIENT (Générales et spécifiques)
     Route::get('/appointments/create', [AppointmentController::class, 'create'])->name('appointments.create');
     Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
     Route::get('/appointments/{appointment}/ticket', [AppointmentController::class, 'downloadTicket'])->name('appointments.downloadTicket');
+    
+    // Route pour "Consulter mes soins" (Profil patient)
+    Route::get('/patients/{patient}', [PatientController::class, 'show'])->name('patients.show');
+    
+    // Route pour "Télécharger le carnet"
     Route::get('/patient/medical-record/{patient}', [PatientController::class, 'downloadMedicalRecord'])->name('patient.medical-record');
 
     // SECTION ADMIN
@@ -29,11 +34,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/clinics/create', [ClinicController::class, 'create'])->name('clinics.create');
         Route::post('/clinics', [ClinicController::class, 'store'])->name('clinics.store');
         
-        // Gestion des Utilisateurs
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
         Route::patch('/admin/users/{user}/role', [UserController::class, 'updateRole'])->name('admin.users.updateRole');
 
-        // Gestion des Affectations
         Route::get('/admin/assignments', [UserController::class, 'assignments'])->name('admin.assignments.index');
         Route::post('/admin/assignments/clinic', [UserController::class, 'storeClinicAssignment'])->name('admin.assignments.clinic.store');
         Route::post('/admin/assignments/doctor-secretary', [UserController::class, 'storeSecretaryAssignment'])->name('admin.assignments.secretary.store');
@@ -41,7 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/admin/assignments/secretary/{id}', [UserController::class, 'detachSecretary'])->name('admin.assignments.secretary.detach');
     });
 
-    // SECTION MÉDECIN (Planning & Imprévus)
+    // SECTION MÉDECIN
     Route::middleware(['role:medecin'])->group(function () {
         Route::get('/doctor/schedule', [AvailabilityController::class, 'index'])->name('doctor.availabilities.index');
         Route::post('/doctor/schedule', [AvailabilityController::class, 'store'])->name('doctor.availabilities.store');
@@ -55,7 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('services', ServiceController::class);
     });
 
-    // SECTION GESTION CLINIQUE
+    // SECTION GESTION CLINIQUE (Multi-rôles)
     Route::middleware(['role:medecin,secretaire,admin'])->group(function () {
         Route::prefix('clinics/{clinic}')->group(function () {
             Route::get('/', [ClinicController::class, 'show'])->name('clinics.show');
@@ -67,7 +70,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('patients', PatientController::class)->names('clinics.patients');
             Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
             
-            // Route spécifique pour la mise à jour du statut (Terminer le soin / Valider)
             Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])
                 ->name('clinics.appointments.updateStatus');
         });

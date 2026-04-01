@@ -21,10 +21,15 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ? [
                     'id'   => $request->user()->id,
                     'name' => $request->user()->name,
-                    'role' => $request->user()->role, // CRUCIAL : C'est cette ligne qui débloque tes onglets
+                    'role' => $request->user()->role,
+                    'clinic_id' => $request->user()->clinic_id,
+                    // AJOUT CRUCIAL : On partage les infos du profil patient
+                    'patient' => $request->user()->patient ? [
+                        'id' => $request->user()->patient->id,
+                        'clinic_id' => $request->user()->patient->clinic_id,
+                    ] : null,
                 ] : null,
             ],
-            // On ajoute aussi les messages flash pour la robustesse
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

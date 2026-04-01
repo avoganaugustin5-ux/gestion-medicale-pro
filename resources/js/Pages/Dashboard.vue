@@ -17,7 +17,8 @@ const props = defineProps({
     activities: Array,
     stats: Object,
     filters: Object,
-    userRole: String
+    userRole: String,
+    patient: Object // RE-AJOUTÉ ICI
 });
 
 const page = usePage();
@@ -93,7 +94,7 @@ watch(search, debounce((value) => {
                     <AdminDashboard v-if="role === 'admin'" :clinics="clinics" />
                     <SecretaryDashboard v-else-if="role === 'secretaire'" :appointments="appointments" />
                     <DoctorDashboard v-else-if="role === 'medecin'" :appointments="appointments" />
-                    <PatientDashboard v-else-if="role === 'patient'" :appointments="appointments" />
+                    <PatientDashboard v-else-if="role === 'patient'" :appointments="appointments" :patient="patient" />
                 </div>
 
                 <div v-if="role !== 'patient'" class="mt-12">
