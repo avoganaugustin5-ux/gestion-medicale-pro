@@ -44,7 +44,8 @@ const handleSelect = (info) => {
 };
 
 const handleEventClick = (info) => {
-    const isBooked = info.event.extendedProps.is_booked;
+    // Sécurité : on vérifie si extendedProps existe
+    const isBooked = info.event.extendedProps?.is_booked;
     
     if (isBooked) {
         alert("Ce créneau est déjà réservé par un patient. Contactez la secrétaire pour une annulation manuelle.");
@@ -65,8 +66,9 @@ const handleEventClick = (info) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-black text-xl text-slate-800 uppercase italic">📅 Gestion du Planning</h2>
+                
                 <a 
-                    :href="route('doctor.availabilities.pdf')" 
+                    :href="route('doctor.availabilities.export')" 
                     target="_blank"
                     class="bg-rose-600 px-6 py-2 text-white text-xs font-black uppercase rounded-full shadow-lg hover:bg-rose-700 transition flex items-center gap-2"
                 >

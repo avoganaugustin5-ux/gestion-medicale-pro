@@ -117,4 +117,11 @@ class AvailabilityController extends Controller
 
         return $pdf->download('Mon_Planning_Semaine.pdf');
     }
+
+    public function downloadPdf()
+    {
+        // On codera le contenu du PDF juste après, 
+        // l'important est que la route réponde pour débloquer l'affichage.
+        return response()->json(['message' => 'Génération du PDF...']);
+    }
 }

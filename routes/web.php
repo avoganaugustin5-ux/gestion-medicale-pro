@@ -41,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/doctor/schedule', [AvailabilityController::class, 'store'])->name('doctor.availabilities.store');
         Route::patch('/doctor/schedule/{availability}', [AvailabilityController::class, 'update'])->name('doctor.availabilities.update');
         Route::delete('/doctor/schedule/{availability}', [AvailabilityController::class, 'destroy'])->name('doctor.availabilities.destroy');
+        // Route alignée sur le nom 'export'
         Route::get('/doctor/schedule/export', [AvailabilityController::class, 'exportPdf'])->name('doctor.availabilities.export');
     });
 
