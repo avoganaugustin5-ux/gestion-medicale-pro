@@ -57,7 +57,7 @@ const getStatusConfig = (status) => {
                 <h4 class="text-lg font-bold text-gray-800 flex items-center">
                     <span class="mr-2">📅</span> Mes rendez-vous
                 </h4>
-                <Link :href="route('clinics.appointments.create', { clinic: patient?.clinic_id || 1 })" 
+                <Link :href="route('appointments.create', { clinic: patient?.clinic_id || 1 })" 
                       class="text-[10px] font-black uppercase tracking-widest text-white bg-indigo-600 px-4 py-2 rounded-lg shadow-lg">
                     + Nouveau RDV
                 </Link>
