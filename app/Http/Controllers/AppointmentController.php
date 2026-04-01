@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Clinic;
 use App\Models\Appointment;
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
@@ -14,36 +17,69 @@ class AppointmentController extends Controller
         return Inertia::render('Clinics/Appointments/Index', [
             'clinic' => $clinic,
             'appointments' => $clinic->appointments()
-                ->with(['doctor', 'patient'])
+                ->with(['doctor.user', 'patient.user', 'service'])
                 ->latest()
                 ->get(),
-            'doctors' => $clinic->doctors()->select('id', 'last_name', 'first_name', 'specialty')->get(),
-            'patients' => $clinic->patients()->select('id', 'last_name', 'first_name')->get(),
         ]);
     }
 
-    public function store(Request $request, Clinic $clinic)
+    public function create()
+    {
+        return Inertia::render('Clinics/Appointments/Create', [
+            'clinics' => Clinic::all(),
+            'services' => Service::all(),
+        ]);
+    }
+
+    public function store(Request $request)
     {
         $request->validate([
+            'clinic_id' => 'required|exists:clinics,id',
+            'service_id' => 'required|exists:services,id',
             'doctor_id' => 'required|exists:doctors,id',
-            'patient_id' => 'required|exists:patients,id',
             'appointment_date' => 'required|date|after:now',
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $clinic->appointments()->create(array_merge($request->all(), ['status' => 'pending']));
+        $patient = Auth::user()->patient;
 
-        return redirect()->back()->with('success', 'Rendez-vous enregistré.');
+        Appointment::create([
+            'clinic_id' => $request->clinic_id,
+            'service_id' => $request->service_id,
+            'doctor_id' => $request->doctor_id,
+            'patient_id' => $patient->id,
+            'appointment_date' => $request->appointment_date,
+            'reason' => $request->reason,
+            'status' => 'pending',
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Votre demande de rendez-vous a été envoyée à la secrétaire.');
     }
 
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $request->validate([
-            'status' => 'required|in:pending,confirmed,cancelled,completed'
+            'status' => 'required|in:pending,confirmed,cancelled,completed',
+            'cancel_reason' => 'nullable|string'
         ]);
 
-        $appointment->update(['status' => $request->status]);
+        $appointment->update([
+            'status' => $request->status,
+            'cancel_reason' => $request->cancel_reason,
+            'secretary_id' => Auth::user()->secretary?->id
+        ]);
 
-        return redirect()->back()->with('success', 'Statut du rendez-vous mis à jour.');
+        $msg = $request->status === 'confirmed' ? 'Rendez-vous confirmé.' : 'Rendez-vous refusé.';
+        return redirect()->back()->with('success', $msg);
+    }
+
+    public function downloadTicket(Appointment $appointment)
+    {
+        if ($appointment->status !== 'confirmed') {
+            abort(403, 'Ticket non disponible.');
+        }
+
+        $pdf = Pdf::loadView('pdf.appointment-ticket', compact('appointment'));
+        return $pdf->download("Ticket-RDV-{$appointment->id}.pdf");
     }
 }

@@ -32,7 +32,7 @@ class Patient extends Model
      */
     public function appointments(): HasMany
     {
-        return $this->hasMany(Appointment::class)->orderBy('date_heure', 'desc');
+        return $this->hasMany(Appointment::class)->orderBy('appointment_date', 'desc');
     }
 
     /**
@@ -40,7 +40,7 @@ class Patient extends Model
      */
     public function pendingAppointments(): HasMany
     {
-        return $this->hasMany(Appointment::class)->where('status', 'en_attente');
+        return $this->hasMany(Appointment::class)->where('status', 'pending');
     }
 
     /**
@@ -48,7 +48,7 @@ class Patient extends Model
      */
     public function validatedAppointments(): HasMany
     {
-        return $this->hasMany(Appointment::class)->where('status', 'valide');
+        return $this->hasMany(Appointment::class)->where('status', 'confirmed');
     }
 
     /**

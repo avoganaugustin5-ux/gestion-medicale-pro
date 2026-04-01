@@ -13,7 +13,7 @@ class Appointment extends Model
     const STATUS_PENDING = 'pending';
     const STATUS_CONFIRMED = 'confirmed';
     const STATUS_CANCELLED = 'cancelled';
-    const STATUS_COMPLETED = 'completed'; // Ajout pour le suivi pro
+    const STATUS_COMPLETED = 'completed';
 
     protected $fillable = [
         'clinic_id', 
@@ -23,13 +23,16 @@ class Appointment extends Model
         'service_id',
         'appointment_date', 
         'reason', 
+        'cancel_reason',
         'status',
+    ];
+
+    protected $casts = [
+        'appointment_date' => 'datetime',
     ];
 
     public function doctor(): BelongsTo 
     { 
-        // Si ton modèle s'appelle User (avec rôle medecin), utilise User::class
-        // Sinon garde Doctor::class si c'est un modèle séparé
         return $this->belongsTo(Doctor::class, 'doctor_id'); 
     }
 

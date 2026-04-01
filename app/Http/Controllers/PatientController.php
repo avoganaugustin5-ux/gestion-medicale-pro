@@ -6,6 +6,8 @@ use App\Models\Clinic;
 use App\Models\Patient;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 
 class PatientController extends Controller
 {
@@ -37,24 +39,33 @@ class PatientController extends Controller
      */
     public function show(Clinic $clinic, Patient $patient)
     {
-        // Sécurité : on vérifie que le patient appartient bien à cette clinique
-        if ($patient->clinic_id !== $clinic->id) {
-            abort(403, 'Ce patient ne fait pas partie de cet établissement.');
+        // Sécurité : on vérifie l'appartenance ou le rôle admin
+        if ($patient->clinic_id !== $clinic->id && !Auth::user()->hasRole('admin')) {
+            abort(403, 'Accès non autorisé à ce dossier patient.');
         }
 
         return Inertia::render('Clinics/Patients/Show', [
             'clinic' => $clinic,
-            'patient' => $patient,
-            // On récupère les consultations avec les infos du médecin (table users)
+            'patient' => $patient->load('user'),
             'consultations' => $patient->consultations()
                 ->with('doctor.user:id,name') 
                 ->latest()
                 ->get(),
-            // On récupère l'historique des rendez-vous
             'appointments' => $patient->appointments()
-                ->latest('date_heure')
+                ->with('doctor.user:id,name')
+                ->latest()
                 ->get(),
         ]);
+    }
+
+    /**
+     * Générer le carnet de santé PDF.
+     */
+    public function downloadMedicalRecord(Patient $patient)
+    {
+        $patient->load(['consultations.doctor.user', 'user']);
+        $pdf = Pdf::loadView('pdf.medical-record', compact('patient'));
+        return $pdf->download("Carnet-Sante-{$patient->last_name}.pdf");
     }
 
     /**
@@ -68,7 +79,6 @@ class PatientController extends Controller
             'phone' => 'required|string|max:20',
         ]);
 
-        // On force l'id de la clinique lors de la création
         $clinic->patients()->create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
