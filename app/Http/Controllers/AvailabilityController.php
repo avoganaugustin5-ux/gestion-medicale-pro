@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Availability;
 use App\Models\User;
+use App\Models\Doctor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
@@ -41,6 +42,15 @@ class AvailabilityController extends Controller
 
     public function store(Request $request)
     {
+        // On vérifie si on reçoit un seul créneau ou un tableau de slots
+        if ($request->has('date')) {
+            $data = ['slots' => [$request->all()]];
+        } else {
+            $data = $request->all();
+        }
+
+        $request->merge($data);
+
         $request->validate([
             'slots' => 'required|array',
             'slots.*.date' => 'required|date',
@@ -49,11 +59,19 @@ class AvailabilityController extends Controller
         ]);
 
         $user = Auth::user();
+        
+        // Sécurité : On récupère l'ID du profil docteur (Alexandre)
+        $doctor = $user->doctor;
+
+        if (!$doctor) {
+            return back()->with('error', 'Profil docteur introuvable. Veuillez contacter l\'administrateur.');
+        }
 
         foreach ($request->slots as $slot) {
             Availability::create([
                 'user_id' => $user->id,
-                'clinic_id' => $user->clinic_id,
+                'doctor_id' => $doctor->id, // Liaison cruciale
+                'clinic_id' => $user->clinic_id ?? $doctor->clinic_id,
                 'date' => $slot['date'],
                 'start_time' => $slot['start_time'],
                 'end_time' => $slot['end_time'],
@@ -61,7 +79,7 @@ class AvailabilityController extends Controller
             ]);
         }
 
-        return back()->with('message', 'Planning de la semaine enregistré.');
+        return back()->with('message', 'Créneau enregistré avec succès.');
     }
 
     public function update(Request $request, Availability $availability)
@@ -77,22 +95,21 @@ class AvailabilityController extends Controller
         ]);
 
         if ($request->status === 'cancelled') {
-            $doctor = Auth::user();
-            // On s'assure que la relation 'secretaries' existe dans le modèle User
-            $secretaries = $doctor->secretaries; 
+            $doctorUser = Auth::user();
+            $secretaries = $doctorUser->secretaries; 
 
             if ($secretaries && $secretaries->count() > 0) {
-                Notification::send($secretaries, new ImprevuMedecinNotification($availability, $doctor));
+                Notification::send($secretaries, new ImprevuMedecinNotification($availability, $doctorUser));
             }
         }
 
-        return back()->with('message', 'Statut mis à jour et secrétaire notifiée.');
+        return back()->with('message', 'Statut mis à jour.');
     }
 
     public function destroy(Availability $availability)
     {
         if ($availability->is_booked) {
-            return back()->with('error', 'Impossible de supprimer un créneau ayant déjà un rendez-vous.');
+            return back()->with('error', 'Impossible de supprimer un créneau réservé.');
         }
 
         $availability->delete();
@@ -101,7 +118,6 @@ class AvailabilityController extends Controller
 
     public function exportPdf()
     {
-        // On récupère les créneaux de la semaine en cours
         $availabilities = Availability::where('user_id', Auth::id())
             ->whereBetween('date', [now()->startOfWeek(), now()->endOfWeek()])
             ->orderBy('date')
@@ -115,9 +131,7 @@ class AvailabilityController extends Controller
             'university' => 'Université Thomas SANKARA (UTS)'
         ];
 
-        // On charge la vue 'pdf.schedule' que nous créerons ensemble
         $pdf = Pdf::loadView('pdf.schedule', $data);
-
-        return $pdf->download('Planning_AKASUTS_' . Auth::user()->last_name . '.pdf');
+        return $pdf->download('Planning_AKASUTS_' . Auth::user()->name . '.pdf');
     }
 }

@@ -80,4 +80,18 @@ class User extends Authenticatable
     {
         return strtolower($this->role) === strtolower($role);
     }
+
+    protected static function booted()
+    {
+        static::created(function ($user) {
+            if ($user->role === 'medecin') {
+                $user->doctor()->create([
+                    'name' => $user->name,
+                    'specialty' => 'À définir',
+                    'clinic_id' => $user->clinic_id ?? 1,
+                ]);
+            }
+        });
+    }
+
 }
