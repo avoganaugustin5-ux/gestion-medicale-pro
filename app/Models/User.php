@@ -24,13 +24,11 @@ class User extends Authenticatable
 
     // --- RELATIONS ---
 
-    // Relation pour le profil Patient
     public function patient(): HasOne
     {
         return $this->hasOne(Patient::class);
     }
 
-    // AJOUTÉ : Relation pour le profil Docteur (CRUCIAL pour AKASUTS)
     public function doctor(): HasOne
     {
         return $this->hasOne(Doctor::class);
@@ -46,7 +44,6 @@ class User extends Authenticatable
         return $this->belongsTo(Clinic::class);
     }
 
-    // Relations pour les secrétaires (Many-to-Many entre Users)
     public function secretaries(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'doctor_id', 'secretary_id');
@@ -69,12 +66,11 @@ class User extends Authenticatable
         return strtolower($this->role) === strtolower($role);
     }
 
-    // --- AUTOMATISATION (BOOTHED) ---
+    // --- AUTOMATISATION ---
 
     protected static function booted()
     {
         static::created(function ($user) {
-            // Création automatique du profil métier selon le rôle
             if ($user->role === 'medecin') {
                 $user->doctor()->create([
                     'name' => $user->name,
@@ -91,7 +87,7 @@ class User extends Authenticatable
         });
     }
 
-    // --- NOTIFICATIONS & SÉCURITÉ ---
+    // --- NOTIFICATIONS ---
 
     public function sendPasswordResetNotification($token)
     {
