@@ -10,8 +10,7 @@ use Illuminate\Support\Facades\Notification;
 use App\Notifications\ImprevuMedecinNotification;
 use Inertia\Inertia;
 use Carbon\Carbon;
-// N'oublie pas d'installer dompdf : composer require barryvdh/laravel-dompdf
-use Barrier\Dompdf\Facade\Pdf; 
+use Barryvdh\DomPDF\Facade\Pdf; 
 
 class AvailabilityController extends Controller
 {
@@ -77,13 +76,12 @@ class AvailabilityController extends Controller
             'note' => $request->note
         ]);
 
-        // LOGIQUE DE NOTIFICATION AUTOMATIQUE
         if ($request->status === 'cancelled') {
             $doctor = Auth::user();
-            // On récupère les secrétaires liées via la table pivot
-            $secretaries = $doctor->secretary; 
+            // On s'assure que la relation 'secretaries' existe dans le modèle User
+            $secretaries = $doctor->secretaries; 
 
-            if ($secretaries->count() > 0) {
+            if ($secretaries && $secretaries->count() > 0) {
                 Notification::send($secretaries, new ImprevuMedecinNotification($availability, $doctor));
             }
         }
@@ -101,27 +99,25 @@ class AvailabilityController extends Controller
         return back()->with('message', 'Créneau supprimé.');
     }
 
-    // Méthode pour l'export PDF
     public function exportPdf()
     {
+        // On récupère les créneaux de la semaine en cours
         $availabilities = Availability::where('user_id', Auth::id())
             ->whereBetween('date', [now()->startOfWeek(), now()->endOfWeek()])
             ->orderBy('date')
             ->orderBy('start_time')
             ->get();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.schedule', [
+        $data = [
             'doctor' => Auth::user(),
-            'availabilities' => $availabilities
-        ]);
+            'availabilities' => $availabilities,
+            'date_gen' => now()->format('d/m/Y H:i'),
+            'university' => 'Université Thomas SANKARA (UTS)'
+        ];
 
-        return $pdf->download('Mon_Planning_Semaine.pdf');
-    }
+        // On charge la vue 'pdf.schedule' que nous créerons ensemble
+        $pdf = Pdf::loadView('pdf.schedule', $data);
 
-    public function downloadPdf()
-    {
-        // On codera le contenu du PDF juste après, 
-        // l'important est que la route réponde pour débloquer l'affichage.
-        return response()->json(['message' => 'Génération du PDF...']);
+        return $pdf->download('Planning_AKASUTS_' . Auth::user()->last_name . '.pdf');
     }
 }

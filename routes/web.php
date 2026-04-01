@@ -41,7 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/doctor/schedule', [AvailabilityController::class, 'store'])->name('doctor.availabilities.store');
         Route::patch('/doctor/schedule/{availability}', [AvailabilityController::class, 'update'])->name('doctor.availabilities.update');
         Route::delete('/doctor/schedule/{availability}', [AvailabilityController::class, 'destroy'])->name('doctor.availabilities.destroy');
-        // Route alignée sur le nom 'export'
+        // Route alignée sur le nom 'export' pour le PDF
         Route::get('/doctor/schedule/export', [AvailabilityController::class, 'exportPdf'])->name('doctor.availabilities.export');
     });
 
@@ -57,9 +57,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/edit', [ClinicController::class, 'edit'])->name('clinics.edit');
             Route::patch('/', [ClinicController::class, 'update'])->name('clinics.update');
             Route::delete('/', [ClinicController::class, 'destroy'])->name('clinics.destroy');
+            
             Route::resource('doctors', DoctorController::class)->names('clinics.doctors');
             Route::resource('patients', PatientController::class)->names('clinics.patients');
+            
+            // Gestion des RDV
             Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
+            
+            // NOUVEAU : Route spécifique pour la mise à jour du statut (Terminer le soin / Valider)
+            // Note : On l'ajoute ici pour qu'elle soit accessible via route('clinics.appointments.updateStatus', ...)
+            Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])
+                ->name('clinics.appointments.updateStatus');
         });
     });
 

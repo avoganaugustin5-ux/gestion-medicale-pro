@@ -10,10 +10,10 @@ class Appointment extends Model
 {
     use HasFactory;
 
-    // Harmonisation avec les ENUM de ta migration
     const STATUS_PENDING = 'pending';
     const STATUS_CONFIRMED = 'confirmed';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_COMPLETED = 'completed'; // Ajout pour le suivi pro
 
     protected $fillable = [
         'clinic_id', 
@@ -26,12 +26,30 @@ class Appointment extends Model
         'status',
     ];
 
-    // Relations
-    public function doctor(): BelongsTo { 
+    public function doctor(): BelongsTo 
+    { 
+        // Si ton modèle s'appelle User (avec rôle medecin), utilise User::class
+        // Sinon garde Doctor::class si c'est un modèle séparé
         return $this->belongsTo(Doctor::class, 'doctor_id'); 
     }
-    public function patient(): BelongsTo { return $this->belongsTo(Patient::class); }
-    public function secretary(): BelongsTo { return $this->belongsTo(Secretary::class); }
-    public function clinic(): BelongsTo { return $this->belongsTo(Clinic::class); }
-    public function service(): BelongsTo { return $this->belongsTo(Service::class); }
+
+    public function patient(): BelongsTo 
+    { 
+        return $this->belongsTo(Patient::class); 
+    }
+
+    public function secretary(): BelongsTo 
+    { 
+        return $this->belongsTo(Secretary::class); 
+    }
+
+    public function clinic(): BelongsTo 
+    { 
+        return $this->belongsTo(Clinic::class); 
+    }
+
+    public function service(): BelongsTo 
+    { 
+        return $this->belongsTo(Service::class); 
+    }
 }

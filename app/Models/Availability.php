@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Availability extends Model
 {
@@ -17,12 +18,17 @@ class Availability extends Model
         'note'
     ];
 
-    public function clinic()
+    protected $casts = [
+        'is_booked' => 'boolean',
+        'date' => 'date',
+    ];
+
+    public function clinic(): BelongsTo
     {
         return $this->belongsTo(Clinic::class);
     }
 
-    public function doctor()
+    public function doctor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
