@@ -16,17 +16,19 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user() ? [
-                    'id'   => $request->user()->id,
-                    'name' => $request->user()->name,
-                    'role' => $request->user()->role,
-                    'clinic_id' => $request->user()->clinic_id,
-                    // AJOUT CRUCIAL : On partage les infos du profil patient
-                    'patient' => $request->user()->patient ? [
-                        'id' => $request->user()->patient->id,
-                        'clinic_id' => $request->user()->patient->clinic_id,
+                'user' => $user ? [
+                    'id'   => $user->id,
+                    'name' => $user->name,
+                    'role' => $user->role,
+                    'clinic_id' => $user->clinic_id,
+                    // On vérifie l'existence du profil patient avant d'extraire les IDs
+                    'patient' => $user->patient ? [
+                        'id' => $user->patient->id,
+                        'clinic_id' => $user->patient->clinic_id,
                     ] : null,
                 ] : null,
             ],
