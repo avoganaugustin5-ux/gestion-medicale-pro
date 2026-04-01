@@ -82,22 +82,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-// ROUTE TEMPORAIRE DE RÉPARATION
-Route::get('/fix-patients', function() {
-    $users = \App\Models\User::where('role', 'patient')->whereDoesntHave('patient')->get();
-    $count = 0;
-    foreach ($users as $user) {
-        $nameParts = explode(' ', $user->name, 2);
-        \App\Models\Patient::create([
-            'user_id'    => $user->id,
-            'first_name' => $nameParts[1] ?? 'Prénom',
-            'last_name'  => $nameParts[0],
-            'phone'      => $user->numeroTelephone ?? '00000000',
-            'clinic_id'  => 1,
-        ]);
-        $count++;
-    }
-    return "Succès : $count profils patients créés ! Fatim devrait maintenant voir ses boutons.";
-})->middleware(['auth']);
-
 require __DIR__.'/auth.php';
