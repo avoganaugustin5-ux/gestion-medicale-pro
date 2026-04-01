@@ -18,7 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
-    // ROUTES PATIENT (Générales et spécifiques)
+    // --- ROUTES PATIENT (Prioritaires pour éviter le blocage 403) ---
     Route::get('/appointments/create', [AppointmentController::class, 'create'])->name('appointments.create');
     Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
     Route::get('/appointments/{appointment}/ticket', [AppointmentController::class, 'downloadTicket'])->name('appointments.downloadTicket');
@@ -29,7 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Route pour "Télécharger le carnet"
     Route::get('/patient/medical-record/{patient}', [PatientController::class, 'downloadMedicalRecord'])->name('patient.medical-record');
 
-    // SECTION ADMIN
+    // --- SECTION ADMIN ---
     Route::middleware(['role:admin'])->group(function () {
         Route::get('/clinics/create', [ClinicController::class, 'create'])->name('clinics.create');
         Route::post('/clinics', [ClinicController::class, 'store'])->name('clinics.store');
@@ -44,7 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/admin/assignments/secretary/{id}', [UserController::class, 'detachSecretary'])->name('admin.assignments.secretary.detach');
     });
 
-    // SECTION MÉDECIN
+    // --- SECTION MÉDECIN ---
     Route::middleware(['role:medecin'])->group(function () {
         Route::get('/doctor/schedule', [AvailabilityController::class, 'index'])->name('doctor.availabilities.index');
         Route::post('/doctor/schedule', [AvailabilityController::class, 'store'])->name('doctor.availabilities.store');
@@ -53,12 +53,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/doctor/schedule/export', [AvailabilityController::class, 'exportPdf'])->name('doctor.availabilities.export');
     });
 
-    // SECTION SERVICES
+    // --- SECTION SERVICES ---
     Route::middleware(['role:admin,secretaire'])->group(function () {
         Route::resource('services', ServiceController::class);
     });
 
-    // SECTION GESTION CLINIQUE (Multi-rôles)
+    // --- SECTION GESTION CLINIQUE (Multi-rôles) ---
     Route::middleware(['role:medecin,secretaire,admin'])->group(function () {
         Route::prefix('clinics/{clinic}')->group(function () {
             Route::get('/', [ClinicController::class, 'show'])->name('clinics.show');
@@ -68,7 +68,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             
             Route::resource('doctors', DoctorController::class)->names('clinics.doctors');
             Route::resource('patients', PatientController::class)->names('clinics.patients');
-            Route::resource('appointments', AppointmentController::class)->names('clinics.appointments');
+            
+            // Correction ici : On exclut create et store pour laisser la priorité aux routes patient du haut
+            Route::resource('appointments', AppointmentController::class)
+                ->except(['create', 'store'])
+                ->names('clinics.appointments');
             
             Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus'])
                 ->name('clinics.appointments.updateStatus');

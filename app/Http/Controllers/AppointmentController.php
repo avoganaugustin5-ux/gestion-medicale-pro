@@ -28,6 +28,8 @@ class AppointmentController extends Controller
         return Inertia::render('Clinics/Appointments/Create', [
             'clinics' => Clinic::all(),
             'services' => Service::all(),
+            // AJOUT DES DOCTEURS (Indispensable pour le formulaire)
+            'doctors' => \App\Models\Doctor::with('user:id,name')->get(),
         ]);
     }
 
