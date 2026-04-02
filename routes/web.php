@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // --- SECTION SERVICES ---
     Route::middleware(['role:admin,secretaire'])->group(function () {
         Route::resource('services', ServiceController::class);
+        Route::post('/services/attach-doctor', [ServiceController::class, 'attachDoctor'])->name('services.attachDoctor');
     });
 
     // --- SECTION GESTION CLINIQUE (Multi-rôles) ---

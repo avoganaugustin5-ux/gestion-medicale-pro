@@ -48,6 +48,21 @@ const submit = () => {
                             </select>
                             <div v-if="form.errors.categorie" class="text-red-500 text-xs mt-1 font-bold">{{ form.errors.categorie }}</div>
                         </div>
+
+                        <div v-if="unassignedDoctors.length > 0" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h4 class="text-yellow-800 font-bold">Médecins à affecter :</h4>
+                            <div v-for="doc in unassignedDoctors" :key="doc.id" class="flex items-center justify-between mt-2">
+                                <span>{{ doc.name }} ({{ doc.specialty }})</span>
+                                <select @change="(e) => assignService(doc.id, e.target.value)" class="rounded text-sm">
+                                    <option value="">Choisir un service...</option>
+                                    <option v-for="service in services" :key="service.id" :value="service.id">
+                                        {{ service.nom }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+
                         <button :disabled="form.processing" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50">
                             {{ form.processing ? 'Création...' : 'Enregistrer le service' }}
                         </button>

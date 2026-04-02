@@ -41,6 +41,7 @@ class RegisteredUserController extends Controller
         'role' => 'required|in:admin,medecin,secretaire,patient',
         'telephone' => 'required|string|max:20',
         'specialite' => 'required_if:role,medecin|nullable|string|max:255',
+        'service_id' => 'required_if:role,medecin|nullable|exists:services,id',
         'clinic_id' => 'required_if:role,medecin,secretaire|nullable|exists:clinics,id',
     ]);
 
@@ -62,9 +63,9 @@ class RegisteredUserController extends Controller
     if ($request->role === 'medecin') {
         Doctor::create([
             'user_id'    => $user->id,
-            'first_name' => $fName,
-            'last_name'  => $lName,
+            'name'       => $user->name,
             'specialty'  => $request->specialite,
+            'service_id' => $request->service_id,
             'clinic_id'  => $request->clinic_id,
         ]);
     } 

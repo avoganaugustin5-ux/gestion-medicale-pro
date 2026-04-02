@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Models\Doctor;
 
 class ServiceController extends Controller
 {
@@ -12,6 +13,7 @@ class ServiceController extends Controller
     {
         return Inertia::render('Services/Index', [
             'services' => Service::all(),
+            'unassignedDoctors' => Doctor::whereNull('service_id')->get(),
         ]);
     }
 
@@ -26,4 +28,18 @@ class ServiceController extends Controller
 
         return redirect()->back()->with('message', 'Service créé avec succès !');
     }
+
+    public function attachDoctor(Request $request)
+    {
+        $request->validate([
+            'doctor_id' => 'required|exists:doctors,id',
+            'service_id' => 'required|exists:services,id',
+        ]);
+
+        $doctor = Doctor::findOrFail($request->doctor_id);
+        $doctor->update(['service_id' => $request->service_id]);
+
+        return redirect()->back()->with('message', 'Médecin rattaché au service avec succès !');
+    }
+
 }
