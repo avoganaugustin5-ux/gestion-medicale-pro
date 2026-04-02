@@ -61,13 +61,12 @@ class RegisteredUserController extends Controller
         if ($request->role === 'medecin') {
             Doctor::create([
                 'user_id'    => $user->id,
-                'last_name'  => $lastName, // Utilisation des colonnes standards
-                'first_name' => $firstName,
+                'name'       => $user->name, // On envoie le nom complet ici
                 'specialty'  => $request->specialite,
                 'service_id' => $request->service_id,
                 'clinic_id'  => $request->clinic_id,
             ]);
-        } 
+        }
         elseif ($request->role === 'secretaire') {
             // Utilisation du modèle Secretary (vérifie bien l'existence du modèle)
             \App\Models\Secretary::create([
@@ -78,11 +77,16 @@ class RegisteredUserController extends Controller
             ]);
         }
         elseif ($request->role === 'patient') {
+            // On découpe le nom pour remplir first_name et last_name
+            $nameParts = explode(' ', trim($user->name), 2);
+            $fName = $nameParts[0];
+            $lName = $nameParts[1] ?? '.'; // Met un point si le nom de famille est vide
+
             Patient::create([
                 'user_id'    => $user->id,
-                'nom'        => $lastName,
-                'prenom'     => $firstName,
-                'telephone'  => $request->telephone,
+                'first_name' => $fName,  // Correction : On envoie bien first_name
+                'last_name'  => $lName,  // Correction : On envoie bien last_name
+                'phone'      => $user->numeroTelephone,
                 'clinic_id'  => $request->clinic_id ?? 1,
             ]);
         }
