@@ -21,7 +21,7 @@ class AppointmentController extends Controller
         return Inertia::render('Clinics/Appointments/Index', [
             'clinic' => $clinic,
             'appointments' => $clinic->appointments()
-                ->with(['doctor', 'patient.user', 'service'])
+                ->with(['doctor.user', 'patient.user', 'service'])
                 ->latest()
                 ->get(),
         ]);
@@ -34,15 +34,13 @@ class AppointmentController extends Controller
     {
         return Inertia::render('Clinics/Appointments/Create', [
             'clinics' => Clinic::all(),
-            'services' => Service::with('doctors')->get(),
-            // On charge les médecins avec leurs infos utilisateur et leur service rattaché
+            'services' => Service::with('doctors.user')->get(),
             'doctors' => Doctor::with(['user:id,name', 'service'])->get(),
         ]);
     }
 
     /**
      * API interne pour filtrer les médecins par clinique et service.
-     * Utile si ton front-end fait des appels dynamiques.
      */
     public function getDoctorsByCriteria(Request $request)
     {
@@ -88,7 +86,7 @@ class AppointmentController extends Controller
             'status' => 'pending',
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Votre demande de rendez-vous a été envoyée avec succès.');
+        return redirect()->route('dashboard')->with('success', 'Votre demande de rendez-vous a été envoyée.');
     }
 
     /**
@@ -96,38 +94,36 @@ class AppointmentController extends Controller
      */
     public function updateStatus(Request $request, Appointment $appointment)
     {
+        // Correction de la validation : assure-toi que le front envoie 'confirmed' ou 'cancelled'
         $request->validate([
             'status' => 'required|in:pending,confirmed,cancelled,completed',
             'cancel_reason' => 'nullable|string'
         ]);
 
-        // On récupère l'ID de la secrétaire si l'utilisateur est une secrétaire
-        $secretaryId = Auth::user()->secretary?->id;
-
+        // Mise à jour sécurisée
         $appointment->update([
             'status' => $request->status,
             'cancel_reason' => $request->cancel_reason,
-            'secretary_id' => $secretaryId
+            'secretary_id' => Auth::user()->secretary?->id // Enregistre qui a fait l'action
         ]);
 
-        $msg = $request->status === 'confirmed' ? 'Rendez-vous confirmé.' : 'Statut du rendez-vous mis à jour.';
+        $msg = $request->status === 'confirmed' ? 'Rendez-vous validé avec succès !' : 'Statut mis à jour.';
+        
         return redirect()->back()->with('success', $msg);
     }
 
     /**
-     * Génération du ticket PDF pour les rendez-vous confirmés.
+     * Génération du ticket PDF.
      */
     public function downloadTicket(Appointment $appointment)
     {
-        // On charge les relations pour que le PDF ait toutes les infos (noms, service, etc.)
         $appointment->load(['doctor.user', 'patient.user', 'service', 'clinic']);
 
         if ($appointment->status !== 'confirmed') {
-            abort(403, 'Le ticket est disponible uniquement pour les rendez-vous confirmés.');
+            abort(403, 'Le ticket est réservé aux rendez-vous confirmés.');
         }
 
         $pdf = Pdf::loadView('pdf.appointment-ticket', compact('appointment'));
-        
         return $pdf->download("Ticket-RDV-{$appointment->id}.pdf");
     }
 }

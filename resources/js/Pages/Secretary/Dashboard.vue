@@ -7,9 +7,17 @@ const props = defineProps({
     appointments: Array,
 });
 
+// CORRECTION : Utilisation de la bonne route et des bons statuts (confirmed/cancelled)
 const changeStatus = (id, newStatus) => {
-    router.patch(route('secretary.appointments.update', id), {
+    router.patch(route('clinics.appointments.updateStatus', { 
+        clinic: props.clinic.id, 
+        appointment: id 
+    }), {
         status: newStatus
+    }, {
+        onSuccess: () => {
+            // Optionnel : ajouter une notification de succès ici
+        }
     });
 };
 </script>
@@ -46,27 +54,32 @@ const changeStatus = (id, newStatus) => {
                                     <td class="px-6 py-4 font-medium">{{ app.patient.nom }} {{ app.patient.prenom }}</td>
                                     <td class="px-6 py-4">
                                         Dr. {{ app.doctor.last_name }} 
-                                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
                                             {{ app.doctor.service.nom }}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4">
                                         <span :class="{
                                             'px-2 py-1 rounded-full text-xs font-bold': true,
-                                            'bg-yellow-100 text-yellow-800': app.status === 'en_attente',
-                                            'bg-green-100 text-green-800': app.status === 'valide',
-                                            'bg-red-100 text-red-800': app.status === 'annule'
+                                            'bg-yellow-100 text-yellow-800': app.status === 'pending',
+                                            'bg-green-100 text-green-800': app.status === 'confirmed',
+                                            'bg-red-100 text-red-800': app.status === 'cancelled'
                                         }">
-                                            {{ app.status }}
+                                            {{ app.status === 'confirmed' ? 'Confirmé' : (app.status === 'cancelled' ? 'Annulé' : 'En attente') }}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right space-x-2">
-                                        <button v-if="app.status !== 'valide'" 
-                                            @click="changeStatus(app.id, 'valide')"
-                                            class="text-green-600 hover:text-green-900 font-bold text-sm">Valider</button>
-                                        <button v-if="app.status !== 'annule'" 
-                                            @click="changeStatus(app.id, 'annule')"
-                                            class="text-red-600 hover:text-red-900 font-bold text-sm">Annuler</button>
+                                        <button v-if="app.status === 'pending'" 
+                                            @click="changeStatus(app.id, 'confirmed')"
+                                            class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 font-bold text-xs uppercase transition">
+                                            Valider
+                                        </button>
+                                        <button v-if="app.status === 'pending'" 
+                                            @click="changeStatus(app.id, 'cancelled')"
+                                            class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 font-bold text-xs uppercase transition">
+                                            Refuser
+                                        </button>
+                                        <span v-else class="text-gray-400 italic text-xs">Traitée</span>
                                     </td>
                                 </tr>
                             </tbody>
