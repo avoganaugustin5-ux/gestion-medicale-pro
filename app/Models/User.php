@@ -22,6 +22,16 @@ class User extends Authenticatable
         'numeroTelephone', 'imageProfil', 'clinic_id', 
     ];
 
+    protected $hidden = ['password', 'remember_token'];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
     // --- RELATIONS ---
 
     public function patient(): HasOne
@@ -34,16 +44,18 @@ class User extends Authenticatable
         return $this->hasOne(Doctor::class);
     }
 
-    public function clinics(): HasMany
-    {
-        return $this->hasMany(Clinic::class);
-    }
-
     public function clinic(): BelongsTo
     {
         return $this->belongsTo(Clinic::class);
     }
 
+    // Relation pour les secrétaires (plusieurs cliniques possibles si besoin)
+    public function clinics(): HasMany
+    {
+        return $this->hasMany(Clinic::class);
+    }
+
+    // Relations Many-to-Many entre Docteurs et Secrétaires
     public function secretaries(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'doctor_id', 'secretary_id');
@@ -55,40 +67,14 @@ class User extends Authenticatable
     }
 
     // --- LOGIQUE DE RÔLES ---
-
+    // Utilisation de strtolower pour éviter les erreurs de casse (ex: 'Medecin' vs 'medecin')
     public function isAdmin() { return strtolower($this->role) === 'admin'; }
     public function isMedecin() { return strtolower($this->role) === 'medecin'; }
     public function isSecretaire() { return strtolower($this->role) === 'secretaire'; } 
     public function isPatient() { return strtolower($this->role) === 'patient'; }
 
-    public function hasRole($role)
-    {
-        return strtolower($this->role) === strtolower($role);
-    }
-
-    // --- AUTOMATISATION ---
-
-    protected static function booted()
-    {
-        static::created(function ($user) {
-            if ($user->role === 'medecin') {
-                $user->doctor()->create([
-                    'name' => $user->name,
-                    'specialty' => 'À définir',
-                    'clinic_id' => $user->clinic_id ?? 1,
-                ]);
-            }
-
-            if ($user->role === 'patient') {
-                $user->patient()->create([
-                    'nom' => $user->name,
-                ]);
-            }
-        });
-    }
-
-    // --- NOTIFICATIONS ---
-
+    // --- NOTIFICATIONS DE MOT DE PASSE ---
+    // On garde ta personnalisation car elle est cruciale pour l'image de marque d'UTS Santé
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new class($token) extends ResetPassword {
@@ -105,13 +91,10 @@ class User extends Authenticatable
         });
     }
 
-    protected $hidden = ['password', 'remember_token'];
-
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    // --- POURQUOI J'AI RETIRÉ "BOOTED" ? ---
+    /* Note technique : J'ai supprimé la méthode static::booted() car nous gérons désormais 
+       la création des profils (Doctor, Patient, Secretary) directement dans le 
+       RegisteredUserController. Cela permet de remplir les colonnes 'specialty', 
+       'first_name' et 'last_name' correctement dès l'inscription. 
+    */
 }
