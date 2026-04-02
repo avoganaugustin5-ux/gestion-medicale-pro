@@ -21,7 +21,7 @@ class AvailabilityController extends Controller
         ->get()
         ->map(function ($event) {
             // S'assurer que la date est un objet Carbon (grâce au cast dans le modèle)
-            $dateStr = $event->date->format('Y-m-d');
+            $dateStr = is_string($event->date) ? $event->date : $event->date->format('Y-m-d');
             
             // On nettoie le format de l'heure (parfois SQL renvoie 07:00:00)
             $startTime = date('H:i:s', strtotime($event->start_time));
