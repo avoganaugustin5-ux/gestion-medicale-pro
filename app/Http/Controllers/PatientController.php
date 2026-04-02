@@ -40,7 +40,7 @@ class PatientController extends Controller
         // OU si le patient appartient à la clinique 
         // OU si le patient connecté regarde son propre dossier
         $isOwner = ($user->role === 'patient' && $patient->user_id === $user->id);
-        $isAdmin = $user->hasRole('admin');
+        $isAdmin = $user->isAdmin();
         $isClinicStaff = ($patient->clinic_id === $clinic->id);
 
         if (!$isOwner && !$isAdmin && !$isClinicStaff) {
