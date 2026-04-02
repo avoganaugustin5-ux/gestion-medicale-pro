@@ -18,9 +18,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::get('/dashboard', [ClinicController::class, 'index'])->name('dashboard');
 
-    // --- ROUTES PATIENT (Prioritaires pour éviter le blocage 403) ---
+    // --- ROUTES PATIENT (Prioritaires) ---
     Route::get('/appointments/create', [AppointmentController::class, 'create'])->name('appointments.create');
     Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+    
+    // NOUVELLE ROUTE : Filtrage dynamique des médecins pour le formulaire
+    Route::post('/appointments/get-doctors', [AppointmentController::class, 'getDoctorsByCriteria'])
+         ->name('appointments.getDoctors');
+
     Route::get('/appointments/{appointment}/ticket', [AppointmentController::class, 'downloadTicket'])->name('appointments.downloadTicket');
     
     // Route pour "Consulter mes soins" (Profil patient)
@@ -70,7 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('doctors', DoctorController::class)->names('clinics.doctors');
             Route::resource('patients', PatientController::class)->names('clinics.patients');
             
-            // Correction ici : On exclut create et store pour laisser la priorité aux routes patient du haut
+            // On exclut create et store car ils sont gérés au niveau global pour les patients
             Route::resource('appointments', AppointmentController::class)
                 ->except(['create', 'store'])
                 ->names('clinics.appointments');
