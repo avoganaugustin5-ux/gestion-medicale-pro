@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('availabilities', function (Blueprint $table) {
@@ -19,21 +16,12 @@ return new class extends Migration
             $table->time('start_time');
             $table->time('end_time');
             $table->boolean('is_booked')->default(false);
-    
-            // NOUVEAU : Pour gérer les couleurs dans FullCalendar
-            // 'available' (vert), 'cancelled' (rouge - imprévu)
             $table->string('status')->default('available'); 
-    
-            // NOUVEAU : Pour que le médecin explique l'imprévu
             $table->text('note')->nullable(); 
-
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('availabilities');

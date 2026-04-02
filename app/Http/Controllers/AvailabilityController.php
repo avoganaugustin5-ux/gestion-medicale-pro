@@ -16,71 +16,69 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class AvailabilityController extends Controller
 {
     public function index()
-    {
-        $availabilities = Availability::where('user_id', Auth::id())
-            ->get()
-            ->map(function ($event) {
-                return [
-                    'id' => $event->id,
-                    'title' => $event->status === 'cancelled' ? '❌ ANNULÉ' : ($event->is_booked ? '📅 RDV Occupé' : '✅ Disponible'),
-                    'start' => $event->date . 'T' . $event->start_time,
-                    'end' => $event->date . 'T' . $event->end_time,
-                    'backgroundColor' => $event->status === 'cancelled' ? '#ef4444' : ($event->is_booked ? '#3b82f6' : '#10b981'),
-                    'borderColor' => 'transparent',
-                    'extendedProps' => [
-                        'status' => $event->status,
-                        'note' => $event->note,
-                        'is_booked' => $event->is_booked
-                    ]
-                ];
-            });
+{
+    $availabilities = Availability::where('user_id', Auth::id())
+        ->get()
+        ->map(function ($event) {
+            // S'assurer que la date est un objet Carbon (grâce au cast dans le modèle)
+            $dateStr = $event->date->format('Y-m-d');
+            
+            // On nettoie le format de l'heure (parfois SQL renvoie 07:00:00)
+            $startTime = date('H:i:s', strtotime($event->start_time));
+            $endTime = date('H:i:s', strtotime($event->end_time));
 
-        return Inertia::render('Doctor/Schedule', [
-            'events' => $availabilities
-        ]);
-    }
+            return [
+                'id' => $event->id,
+                'title' => $event->status === 'cancelled' ? '❌ ANNULÉ' : ($event->is_booked ? '📅 RDV Occupé' : '✅ Disponible'),
+                // Format ISO8601 strict : YYYY-MM-DDTHH:mm:ss
+                'start' => $dateStr . 'T' . $startTime,
+                'end' => $dateStr . 'T' . $endTime,
+                'backgroundColor' => $event->status === 'cancelled' ? '#ef4444' : ($event->is_booked ? '#3b82f6' : '#10b981'),
+                'borderColor' => 'transparent',
+                'allDay' => false, // Crucial pour l'affichage dans la grille horaire
+                'extendedProps' => [
+                    'status' => $event->status,
+                    'note' => $event->note,
+                    'is_booked' => (bool)$event->is_booked
+                ]
+            ];
+        });
+
+    return Inertia::render('Doctor/Schedule', [
+        'events' => $availabilities
+    ]);
+}
 
     public function store(Request $request)
-    {
-        // On vérifie si on reçoit un seul créneau ou un tableau de slots
-        if ($request->has('date')) {
-            $data = ['slots' => [$request->all()]];
-        } else {
-            $data = $request->all();
-        }
+{
+    // Validation des données entrantes
+    $request->validate([
+        'slots' => 'required|array',
+        'slots.*.date' => 'required|date',
+        'slots.*.start_time' => 'required',
+        'slots.*.end_time' => 'required',
+    ]);
 
-        $request->merge($data);
+    $user = Auth::user();
+    $doctor = $user->doctor; 
 
-        $request->validate([
-            'slots' => 'required|array',
-            'slots.*.date' => 'required|date',
-            'slots.*.start_time' => 'required',
-            'slots.*.end_time' => 'required',
-        ]);
-
-        $user = Auth::user();
-        
-        // Sécurité : On récupère l'ID du profil docteur (Alexandre)
-        $doctor = $user->doctor;
-
-        if (!$doctor) {
-            return back()->with('error', 'Profil docteur introuvable. Veuillez contacter l\'administrateur.');
-        }
-
-        foreach ($request->slots as $slot) {
-            Availability::create([
-                'user_id' => $user->id,
-                'doctor_id' => $doctor->id, // Liaison cruciale
-                'clinic_id' => $user->clinic_id ?? $doctor->clinic_id,
-                'date' => $slot['date'],
-                'start_time' => $slot['start_time'],
-                'end_time' => $slot['end_time'],
-                'status' => 'available',
-            ]);
-        }
-
-        return back()->with('message', 'Créneau enregistré avec succès.');
+    if (!$doctor) {
+        return back()->with('error', 'Profil docteur introuvable.');
     }
+
+    foreach ($request->slots as $slot) {
+        Availability::create([
+            'user_id'    => $user->id,
+            'clinic_id'  => $user->clinic_id ?? $doctor->clinic_id,
+            'date'       => $slot['date'],
+            'start_time' => $slot['start_time'],
+            'end_time'   => $slot['end_time'],
+            'status'     => 'available',
+        ]);
+    }
+
+    return back()->with('message', 'Créneau enregistré avec succès.');
+}
 
     public function update(Request $request, Availability $availability)
     {
