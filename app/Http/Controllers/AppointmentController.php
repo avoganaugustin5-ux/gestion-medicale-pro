@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Clinic;
 use App\Models\Appointment;
 use App\Models\Service;
+use App\Models\Doctor;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,27 +13,55 @@ use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
+    /**
+     * Liste des rendez-vous pour une clinique spécifique.
+     */
     public function index(Clinic $clinic)
     {
         return Inertia::render('Clinics/Appointments/Index', [
             'clinic' => $clinic,
             'appointments' => $clinic->appointments()
-                ->with(['doctor.user', 'patient.user', 'service'])
+                ->with(['doctor', 'patient.user', 'service'])
                 ->latest()
                 ->get(),
         ]);
     }
 
+    /**
+     * Formulaire de création de rendez-vous (Vue Patient).
+     */
     public function create()
     {
         return Inertia::render('Clinics/Appointments/Create', [
             'clinics' => Clinic::all(),
-            'services' => Service::all(),
-            // AJOUT DES DOCTEURS (Indispensable pour le formulaire)
-            'doctors' => \App\Models\Doctor::with('user:id,name')->get(),
+            'services' => Service::with('doctors')->get(),
+            // On charge les médecins avec leurs infos utilisateur et leur service rattaché
+            'doctors' => Doctor::with(['user:id,name', 'service'])->get(),
         ]);
     }
 
+    /**
+     * API interne pour filtrer les médecins par clinique et service.
+     * Utile si ton front-end fait des appels dynamiques.
+     */
+    public function getDoctorsByCriteria(Request $request)
+    {
+        $request->validate([
+            'clinic_id' => 'required|exists:clinics,id',
+            'service_id' => 'required|exists:services,id',
+        ]);
+
+        $doctors = Doctor::where('clinic_id', $request->clinic_id)
+            ->where('service_id', $request->service_id)
+            ->with('user:id,name')
+            ->get();
+
+        return response()->json($doctors);
+    }
+
+    /**
+     * Enregistrement du rendez-vous.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -45,6 +74,10 @@ class AppointmentController extends Controller
 
         $patient = Auth::user()->patient;
 
+        if (!$patient) {
+            return redirect()->back()->with('error', 'Profil patient non trouvé.');
+        }
+
         Appointment::create([
             'clinic_id' => $request->clinic_id,
             'service_id' => $request->service_id,
@@ -55,9 +88,12 @@ class AppointmentController extends Controller
             'status' => 'pending',
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Votre demande de rendez-vous a été envoyée à la secrétaire.');
+        return redirect()->route('dashboard')->with('success', 'Votre demande de rendez-vous a été envoyée avec succès.');
     }
 
+    /**
+     * Mise à jour du statut par la secrétaire ou le médecin.
+     */
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $request->validate([
@@ -65,23 +101,33 @@ class AppointmentController extends Controller
             'cancel_reason' => 'nullable|string'
         ]);
 
+        // On récupère l'ID de la secrétaire si l'utilisateur est une secrétaire
+        $secretaryId = Auth::user()->secretary?->id;
+
         $appointment->update([
             'status' => $request->status,
             'cancel_reason' => $request->cancel_reason,
-            'secretary_id' => Auth::user()->secretary?->id
+            'secretary_id' => $secretaryId
         ]);
 
-        $msg = $request->status === 'confirmed' ? 'Rendez-vous confirmé.' : 'Rendez-vous refusé.';
+        $msg = $request->status === 'confirmed' ? 'Rendez-vous confirmé.' : 'Statut du rendez-vous mis à jour.';
         return redirect()->back()->with('success', $msg);
     }
 
+    /**
+     * Génération du ticket PDF pour les rendez-vous confirmés.
+     */
     public function downloadTicket(Appointment $appointment)
     {
+        // On charge les relations pour que le PDF ait toutes les infos (noms, service, etc.)
+        $appointment->load(['doctor.user', 'patient.user', 'service', 'clinic']);
+
         if ($appointment->status !== 'confirmed') {
-            abort(403, 'Ticket non disponible.');
+            abort(403, 'Le ticket est disponible uniquement pour les rendez-vous confirmés.');
         }
 
         $pdf = Pdf::loadView('pdf.appointment-ticket', compact('appointment'));
+        
         return $pdf->download("Ticket-RDV-{$appointment->id}.pdf");
     }
 }

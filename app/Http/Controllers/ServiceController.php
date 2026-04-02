@@ -12,10 +12,10 @@ class ServiceController extends Controller
     public function index()
 {
     return Inertia::render('Services/Index', [
-        // On récupère les services avec leurs docteurs rattachés
-        'services' => \App\Models\Service::with('doctors')->get(),
-        // On récupère les docteurs qui n'ont PAS encore de service (service_id est NULL)
-        'unassignedDoctors' => \App\Models\Doctor::whereNull('service_id')->get(),
+        'services' => Service::with('doctors')->get(),
+        // On récupère TOUS les médecins pour pouvoir les changer de service si besoin
+        'allDoctors' => Doctor::all(), 
+        'unassignedDoctors' => Doctor::whereNull('service_id')->get(),
     ]);
 }
 
