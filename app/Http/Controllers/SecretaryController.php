@@ -12,39 +12,41 @@ use Inertia\Inertia;
 
 class SecretaryController extends Controller
 {
-    /**
-     * Affiche les rendez-vous des médecins affectés à la secrétaire connectée.
-     */
     public function index(Clinic $clinic)
     {
-        // 1. Récupérer l'ID de l'utilisateur connecté (le compte de la secrétaire)
         $authUserId = Auth::id();
 
-        // 2. Récupérer les IDs des COMPTES UTILISATEURS des médecins liés à cette secrétaire
-        // On interroge directement la table pivot pour éviter tout conflit d'ID de profil
+        // 1. Récupérer les médecins liés à cette secrétaire
         $assignedDoctorUserIds = DB::table('doctor_secretary')
             ->where('secretary_id', $authUserId)
             ->pluck('doctor_id')
             ->toArray();
 
-        // 3. Récupérer les rendez-vous filtrés
-        // On vérifie que le doctor_id (qui est un user_id dans ta table appointments) 
-        // figure bien dans la liste des médecins autorisés.
+        // 2. Filtrer les rendez-vous
         $appointments = Appointment::where('clinic_id', $clinic->id)
             ->whereIn('doctor_id', $assignedDoctorUserIds)
             ->with(['patient.user', 'doctor.user', 'service']) 
             ->orderBy('appointment_date', 'asc')
             ->get();
 
+        // 3. Calculer les statistiques UNIQUEMENT pour ses médecins
+        $todayCount = Appointment::where('clinic_id', $clinic->id)
+            ->whereIn('doctor_id', $assignedDoctorUserIds)
+            ->whereDate('appointment_date', today())
+            ->count();
+
         return Inertia::render('Secretary/Dashboard', [
             'clinic' => $clinic,
             'appointments' => $appointments,
+            // Ces stats écraseront les fausses valeurs sur le dashboard
+            'stats' => [
+                'today' => $todayCount,
+                'patients' => $appointments->unique('patient_id')->count(),
+                'interactions' => $appointments->count(),
+            ]
         ]);
     }
 
-    /**
-     * Mise à jour du statut d'un rendez-vous.
-     */
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $request->validate([
@@ -52,7 +54,6 @@ class SecretaryController extends Controller
             'cancel_reason' => 'nullable|string|max:500', 
         ]);
 
-        // Sécurité : Vérifier l'appartenance avant modification
         $assignedDoctorUserIds = DB::table('doctor_secretary')
             ->where('secretary_id', Auth::id())
             ->pluck('doctor_id')
@@ -72,6 +73,6 @@ class SecretaryController extends Controller
             $appointment->patient->user->notify(new AppointmentStatusUpdated($appointment));
         }
 
-        return redirect()->back()->with('success', 'Statut mis à jour avec succès.');
+        return redirect()->back()->with('success', 'Statut mis à jour.');
     }
 }
