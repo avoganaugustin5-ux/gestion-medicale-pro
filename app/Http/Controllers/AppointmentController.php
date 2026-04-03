@@ -94,20 +94,21 @@ class AppointmentController extends Controller
      */
     public function updateStatus(Request $request, Appointment $appointment)
     {
-        // Correction de la validation : assure-toi que le front envoie 'confirmed' ou 'cancelled'
+        // Validation stricte du statut envoyé par le bouton (vert/rouge)
         $request->validate([
             'status' => 'required|in:pending,confirmed,cancelled,completed',
             'cancel_reason' => 'nullable|string'
         ]);
 
-        // Mise à jour sécurisée
+        // Mise à jour : On utilise le statut envoyé ('confirmed' pour le bouton vert)
         $appointment->update([
             'status' => $request->status,
             'cancel_reason' => $request->cancel_reason,
-            'secretary_id' => Auth::user()->secretary?->id // Enregistre qui a fait l'action
+            // On sauvegarde l'ID de l'utilisateur qui valide, sans forcer la relation secretary
+            'updated_by' => Auth::id() 
         ]);
 
-        $msg = $request->status === 'confirmed' ? 'Rendez-vous validé avec succès !' : 'Statut mis à jour.';
+        $msg = $request->status === 'confirmed' ? 'Rendez-vous validé ! Le patient peut maintenant voir sa confirmation.' : 'Statut mis à jour.';
         
         return redirect()->back()->with('success', $msg);
     }
