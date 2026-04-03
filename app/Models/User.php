@@ -49,32 +49,30 @@ class User extends Authenticatable
         return $this->belongsTo(Clinic::class);
     }
 
-    // Relation pour les secrétaires (plusieurs cliniques possibles si besoin)
     public function clinics(): HasMany
     {
         return $this->hasMany(Clinic::class);
     }
 
-    // Relations Many-to-Many entre Docteurs et Secrétaires
+    // Relation : Si cet utilisateur est un Docteur, il a des secrétaires
     public function secretaries(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'doctor_id', 'secretary_id');
     }
 
+    // Relation : Si cet utilisateur est une Secrétaire, elle a des docteurs affectés
     public function doctors(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'doctor_secretary', 'secretary_id', 'doctor_id');
     }
 
     // --- LOGIQUE DE RÔLES ---
-    // Utilisation de strtolower pour éviter les erreurs de casse (ex: 'Medecin' vs 'medecin')
     public function isAdmin() { return strtolower($this->role) === 'admin'; }
     public function isMedecin() { return strtolower($this->role) === 'medecin'; }
     public function isSecretaire() { return strtolower($this->role) === 'secretaire'; } 
     public function isPatient() { return strtolower($this->role) === 'patient'; }
 
     // --- NOTIFICATIONS DE MOT DE PASSE ---
-    // On garde ta personnalisation car elle est cruciale pour l'image de marque d'UTS Santé
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new class($token) extends ResetPassword {
@@ -90,11 +88,4 @@ class User extends Authenticatable
             }
         });
     }
-
-    // --- POURQUOI J'AI RETIRÉ "BOOTED" ? ---
-    /* Note technique : J'ai supprimé la méthode static::booted() car nous gérons désormais 
-       la création des profils (Doctor, Patient, Secretary) directement dans le 
-       RegisteredUserController. Cela permet de remplir les colonnes 'specialty', 
-       'first_name' et 'last_name' correctement dès l'inscription. 
-    */
 }

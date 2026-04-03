@@ -12,19 +12,24 @@ use Inertia\Inertia;
 class SecretaryController extends Controller
 {
     /**
-     * Affiche les rendez-vous d'une clinique spécifique pour la secrétaire.
+     * Affiche les rendez-vous des médecins affectés à la secrétaire.
      */
     public function index(Clinic $clinic)
     {
-        // Vérification de sécurité : La secrétaire appartient-elle à cette clinique ?
-        // (Optionnel selon ta logique d'affectation)
+        // 1. Récupérer les IDs des médecins affectés à cette secrétaire
+        $assignedDoctorIds = Auth::user()->doctors()->pluck('doctor_id');
+
+        // 2. Filtrer les rendez-vous : 
+        // Doivent appartenir à la clinique ET aux médecins affectés
+        $appointments = Appointment::where('clinic_id', $clinic->id)
+            ->whereIn('doctor_id', $assignedDoctorIds)
+            ->with(['patient.user', 'doctor.user', 'service']) 
+            ->orderBy('appointment_date', 'asc')
+            ->get();
 
         return Inertia::render('Secretary/Dashboard', [
             'clinic' => $clinic,
-            'appointments' => Appointment::where('clinic_id', $clinic->id)
-                ->with(['patient.user', 'doctor.user', 'service']) 
-                ->orderBy('appointment_date', 'asc')
-                ->get(),
+            'appointments' => $appointments,
         ]);
     }
 
@@ -39,29 +44,26 @@ class SecretaryController extends Controller
             'cancel_reason' => 'nullable|string|max:500', 
         ]);
 
-        // 2. SÉCURITÉ (Vérifier que la secrétaire travaille bien pour la clinique du RDV)
-        // Note : Si tu n'as pas encore de relation 'clinic_id' sur l'utilisateur, 
-        // tu peux ignorer cette vérification pour le moment.
-        if (Auth::user()->role === 'secretaire' && Auth::user()->clinic_id !== $appointment->clinic_id) {
-            // Optionnel : Décommenter si tu as configuré les clinic_id sur les users
-            // return redirect()->back()->with('error', 'Action non autorisée pour cet établissement.');
+        // 2. SÉCURITÉ (Vérifier que le médecin du RDV est bien lié à cette secrétaire)
+        $assignedDoctorIds = Auth::user()->doctors()->pluck('doctor_id');
+        
+        if (! $assignedDoctorIds->contains($appointment->doctor_id)) {
+            return redirect()->back()->with('error', 'Vous n\'êtes pas autorisée à gérer les rendez-vous de ce médecin.');
         }
 
         // 3. MISE À JOUR DU RENDEZ-VOUS
         $appointment->update([
             'status' => $request->status,
-            // On enregistre le motif uniquement si le statut est 'cancelled'
             'cancel_reason' => $request->status === 'cancelled' ? $request->cancel_reason : null,
             'secretary_id' => Auth::id(),
         ]);
 
         // 4. ENVOI DE LA NOTIFICATION PAR EMAIL
-        // On récupère l'utilisateur lié au patient pour lui envoyer la notification
         if ($appointment->patient && $appointment->patient->user) {
             $appointment->patient->user->notify(new AppointmentStatusUpdated($appointment));
         }
 
         // 5. RETOUR AVEC MESSAGE FLASH
-        return redirect()->back()->with('success', 'Le statut a été mis à jour et le patient a été averti par email.');
+        return redirect()->back()->with('success', 'Le statut a été mis à jour et le patient a été averti.');
     }
 }

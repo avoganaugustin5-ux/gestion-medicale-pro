@@ -5,11 +5,13 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
+import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue'; // Import ajouté
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || { name: 'Utilisateur', role: '' });
+const showingNavigationDropdown = ref(false); // État du menu mobile
 
-// --- GESTION DES FLASH MESSAGES (Notifications) ---
+// --- GESTION DES FLASH MESSAGES ---
 const flashMessage = computed(() => page.props.flash?.success);
 const showNotification = ref(false);
 
@@ -73,6 +75,36 @@ const isRole = (roleName) => {
                                 <DropdownLink :href="route('logout')" method="post" as="button">Déconnexion</DropdownLink>
                             </template>
                         </Dropdown>
+                    </div>
+
+                    <div class="-me-2 flex items-center sm:hidden">
+                        <button @click="showingNavigationDropdown = !showingNavigationDropdown" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none transition duration-150 ease-in-out">
+                            <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                                <path :class="{'hidden': showingNavigationDropdown, 'inline-flex': !showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                <path :class="{'hidden': !showingNavigationDropdown, 'inline-flex': showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div :class="{'block': showingNavigationDropdown, 'hidden': !showingNavigationDropdown}" class="sm:hidden bg-white border-t border-gray-100">
+                <div class="pt-2 pb-3 space-y-1">
+                    <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">Tableau de bord</ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="isRole('medecin')" :href="route('doctor.availabilities.index')" :active="route().current('doctor.availabilities.*')">Mon Planning</ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="isRole('admin')" :href="route('admin.users.index')" :active="route().current('admin.users.*')">Utilisateurs</ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="isRole('admin')" :href="route('admin.assignments.index')" :active="route().current('admin.assignments.*')">Affectations</ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="isRole('admin') || isRole('secretaire')" :href="route('services.index')" :active="route().current('services.*')">Espace Secrétariat</ResponsiveNavLink>
+                </div>
+
+                <div class="pt-4 pb-1 border-t border-gray-200">
+                    <div class="px-4">
+                        <div class="font-bold text-base text-gray-800">{{ user.name }}</div>
+                        <div class="font-medium text-sm text-gray-500">{{ user.email }}</div>
+                    </div>
+                    <div class="mt-3 space-y-1">
+                        <ResponsiveNavLink :href="route('profile.edit')">Mon Profil</ResponsiveNavLink>
+                        <ResponsiveNavLink :href="route('logout')" method="post" as="button">Déconnexion</ResponsiveNavLink>
                     </div>
                 </div>
             </div>
