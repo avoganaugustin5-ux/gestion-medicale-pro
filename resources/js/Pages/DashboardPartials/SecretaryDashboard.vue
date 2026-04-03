@@ -2,11 +2,13 @@
 import { useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
-    appointments: Array // Ici, ce sont les RDV de SA clinique
+    appointments: Array,
+    clinic: Object // Ajouté pour la route
 });
 
 const form = useForm({
-    status: ''
+    status: '',
+    cancel_reason: ''
 });
 
 const changeStatus = (id, newStatus) => {
@@ -17,8 +19,12 @@ const changeStatus = (id, newStatus) => {
 
     if (confirm(`Confirmer cette action ?`)) {
         form.status = newStatus;
-        form.cancel_reason = reason; // Assure-toi d'ajouter cancel_reason dans useForm
-        form.put(route('appointments.updateStatus', id));
+        form.cancel_reason = reason;
+        // CORRECTION DE LA ROUTE ICI
+        form.patch(route('clinics.appointments.updateStatus', { 
+            clinic: props.clinic.id, 
+            appointment: id 
+        }));
     }
 };
 </script>
@@ -51,11 +57,11 @@ const changeStatus = (id, newStatus) => {
                             <p class="text-[10px] text-gray-500">Inscrit via plateforme</p>
                         </td>
                         <td class="p-4">
-                            <p class="text-sm font-medium text-gray-700">Dr. {{ app.doctor?.last_name }}</p>
+                            <p class="text-sm font-medium text-gray-700">Dr. {{ app.doctor?.user?.name }}</p>
                             <p class="text-[10px] text-blue-600 font-bold italic">{{ app.service?.nom }}</p>
                         </td>
                         <td class="p-4">
-                            <p class="text-sm text-gray-900 font-mono">{{ app.date_rdv }}</p>
+                            <p class="text-sm text-gray-900 font-mono">{{ app.appointment_date }}</p>
                         </td>
                         <td class="p-4 text-right space-x-2">
                             <button @click="changeStatus(app.id, 'confirmed')" 

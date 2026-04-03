@@ -7,22 +7,31 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\ActivityLog;
 use App\Models\User;
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Clinic;
+use App\Models\Appointment;
+use App\Models\Patient;
+use App\Models\ActivityLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ClinicController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. On récupère l'utilisateur avec ses relations pour éviter les bugs d'affichage
+        // 1. On récupère l'utilisateur avec ses relations
         $user = User::with(['patient', 'clinic'])->find(Auth::id());
-    
         $search = $request->input('search');
         $role = strtolower($user->role ?? 'guest');
         $today = now()->toDateString();
 
-        // Gestion des cliniques selon le rôle
+        // --- FILTRAGE DES CLINIQUES ---
         $clinicsQuery = Clinic::query();
         if ($role === 'admin') {
             $clinicsQuery->when($search, function ($query, $search) {
@@ -33,8 +42,9 @@ class ClinicController extends Controller
         }
         $clinics = $clinicsQuery->withCount(['patients', 'appointments'])->get();
 
-        // Statistiques
-        $stats = [];
+        // --- LOGIQUE DE FILTRAGE DES RDV & STATS (Le cœur du problème) ---
+        $appointmentsQuery = Appointment::with(['patient.user', 'doctor.user', 'clinic', 'service']);
+
         if ($role === 'admin') {
             $stats = [
                 'total_clinics' => Clinic::count(),
@@ -42,23 +52,43 @@ class ClinicController extends Controller
                 'total_appointments' => Appointment::count(),
                 'today_appointments' => Appointment::whereDate('appointment_date', $today)->count(),
             ];
-        } else {
+        } 
+        elseif ($role === 'secretaire') {
+            // Filtrage strict pour Moutala : uniquement les médecins qui lui sont rattachés
+            $assignedDoctorUserIds = DB::table('doctor_secretary')
+                ->where('secretary_id', $user->id)
+                ->pluck('doctor_id')
+                ->toArray();
+
+            $appointmentsQuery->where('clinic_id', $user->clinic_id)
+                              ->whereIn('doctor_id', $assignedDoctorUserIds)
+                              ->where('status', 'pending');
+
             $stats = [
                 'today_appointments' => Appointment::where('clinic_id', $user->clinic_id)
+                    ->whereIn('doctor_id', $assignedDoctorUserIds)
                     ->whereDate('appointment_date', $today)->count(),
-                'total_patients' => Patient::where('clinic_id', $user->clinic_id)->count(), 
+                'total_patients' => Appointment::whereIn('doctor_id', $assignedDoctorUserIds)
+                    ->distinct('patient_id')->count(),
+            ];
+        } 
+        elseif ($role === 'medecin') {
+            $appointmentsQuery->where('clinic_id', $user->clinic_id)
+                              ->where('doctor_id', $user->id);
+            
+            $stats = [
+                'today_appointments' => Appointment::where('doctor_id', $user->id)
+                    ->whereDate('appointment_date', $today)->count(),
+                'total_patients' => Appointment::where('doctor_id', $user->id)
+                    ->distinct('patient_id')->count(),
             ];
         }
+        else { // Patient
+            $appointmentsQuery->where('patient_id', $user->patient?->id);
+            $stats = ['today_appointments' => 0, 'total_patients' => 0];
+        }
 
-        // Récupération des rendez-vous
-        $appointments = Appointment::with(['patient.user', 'doctor.user', 'clinic', 'service'])
-            ->when($role === 'patient', function($q) use ($user) {
-                return $q->where('patient_id', $user->patient?->id);
-            })
-            ->when(in_array($role, ['secretaire', 'medecin']), function($q) use ($user) {
-                return $q->where('clinic_id', $user->clinic_id);
-            })
-            ->latest()->take(10)->get();
+        $appointments = $appointmentsQuery->latest()->take(10)->get();
 
         // Journal d'activité
         $activities = ActivityLog::latest()->take(8)->get()->map(fn($log) => [
@@ -71,12 +101,12 @@ class ClinicController extends Controller
 
         return Inertia::render('Dashboard', [
             'clinics' => $clinics,
+            'clinic' => $user->clinic, // Crucial pour le composant Vue
             'appointments' => $appointments,
             'activities' => $activities,
             'stats' => $stats,
             'filters' => $request->only(['search']),
             'userRole' => $role,
-            // CORRECTION ICI : On passe l'objet patient chargé directement
             'patient' => $user->patient ?? null,
         ]);
     }
@@ -87,29 +117,28 @@ class ClinicController extends Controller
     }
 
     public function store(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string|max:5000',
-    ]);
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:5000',
+        ]);
 
-    // On fusionne les données du formulaire avec l'ID de l'admin connecté
-    $clinic = Clinic::create([
-        'name' => $request->name,
-        'description' => $request->description,
-        'user_id' => Auth::id(), // Ajout crucial pour corriger l'erreur 1364
-    ]);
+        $clinic = Clinic::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'user_id' => Auth::id(), 
+        ]);
 
-    ActivityLog::create([
-        'user_id' => Auth::id(),
-        'user_name' => Auth::user()->name,
-        'action' => 'Création',
-        'target' => 'Clinique: ' . $clinic->name,
-        'clinic_name' => 'Administration Centrale'
-    ]);
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'user_name' => Auth::user()->name,
+            'action' => 'Création',
+            'target' => 'Clinique: ' . $clinic->name,
+            'clinic_name' => 'Administration Centrale'
+        ]);
 
-    return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
-}
+        return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
+    }
 
     public function show(Request $request, Clinic $clinic)
     {
@@ -117,7 +146,6 @@ class ClinicController extends Controller
         $role = strtolower($user->role ?? '');
         $search = $request->input('search');
 
-        // Sécurité : Un non-admin ne peut voir que sa propre clinique
         if ($role !== 'admin' && $user->clinic_id !== $clinic->id) {
              if ($role !== 'patient') abort(403);
         }
