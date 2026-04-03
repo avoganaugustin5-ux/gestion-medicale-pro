@@ -7,15 +7,6 @@ use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\ActivityLog;
 use App\Models\User;
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Models\Clinic;
-use App\Models\Appointment;
-use App\Models\Patient;
-use App\Models\ActivityLog;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +33,7 @@ class ClinicController extends Controller
         }
         $clinics = $clinicsQuery->withCount(['patients', 'appointments'])->get();
 
-        // --- LOGIQUE DE FILTRAGE DES RDV & STATS (Le cœur du problème) ---
+        // --- LOGIQUE DE FILTRAGE DES RDV & STATS ---
         $appointmentsQuery = Appointment::with(['patient.user', 'doctor.user', 'clinic', 'service']);
 
         if ($role === 'admin') {
@@ -54,7 +45,7 @@ class ClinicController extends Controller
             ];
         } 
         elseif ($role === 'secretaire') {
-            // Filtrage strict pour Moutala : uniquement les médecins qui lui sont rattachés
+            // Uniquement les médecins rattachés à ce secrétaire
             $assignedDoctorUserIds = DB::table('doctor_secretary')
                 ->where('secretary_id', $user->id)
                 ->pluck('doctor_id')
@@ -101,7 +92,7 @@ class ClinicController extends Controller
 
         return Inertia::render('Dashboard', [
             'clinics' => $clinics,
-            'clinic' => $user->clinic, // Crucial pour le composant Vue
+            'clinic' => $user->clinic, 
             'appointments' => $appointments,
             'activities' => $activities,
             'stats' => $stats,
