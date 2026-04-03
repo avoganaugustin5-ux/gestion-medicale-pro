@@ -7,22 +7,31 @@ use App\Models\Clinic;
 use App\Models\Appointment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class SecretaryController extends Controller
 {
     /**
-     * Affiche les rendez-vous des médecins affectés à la secrétaire.
+     * Affiche les rendez-vous des médecins affectés à la secrétaire connectée.
      */
     public function index(Clinic $clinic)
     {
-        // 1. Récupérer les IDs des médecins affectés à cette secrétaire
-        $assignedDoctorIds = Auth::user()->doctors()->pluck('doctor_id');
+        // 1. Récupérer l'ID de l'utilisateur connecté (le compte de la secrétaire)
+        $authUserId = Auth::id();
 
-        // 2. Filtrer les rendez-vous : 
-        // Doivent appartenir à la clinique ET aux médecins affectés
+        // 2. Récupérer les IDs des COMPTES UTILISATEURS des médecins liés à cette secrétaire
+        // On interroge directement la table pivot pour éviter tout conflit d'ID de profil
+        $assignedDoctorUserIds = DB::table('doctor_secretary')
+            ->where('secretary_id', $authUserId)
+            ->pluck('doctor_id')
+            ->toArray();
+
+        // 3. Récupérer les rendez-vous filtrés
+        // On vérifie que le doctor_id (qui est un user_id dans ta table appointments) 
+        // figure bien dans la liste des médecins autorisés.
         $appointments = Appointment::where('clinic_id', $clinic->id)
-            ->whereIn('doctor_id', $assignedDoctorIds)
+            ->whereIn('doctor_id', $assignedDoctorUserIds)
             ->with(['patient.user', 'doctor.user', 'service']) 
             ->orderBy('appointment_date', 'asc')
             ->get();
@@ -34,36 +43,35 @@ class SecretaryController extends Controller
     }
 
     /**
-     * Mise à jour du statut d'un rendez-vous (Validation/Refus).
+     * Mise à jour du statut d'un rendez-vous.
      */
     public function updateStatus(Request $request, Appointment $appointment)
     {
-        // 1. VALIDATION DES DONNÉES ENTRANTES
         $request->validate([
             'status' => 'required|in:pending,confirmed,cancelled',
             'cancel_reason' => 'nullable|string|max:500', 
         ]);
 
-        // 2. SÉCURITÉ (Vérifier que le médecin du RDV est bien lié à cette secrétaire)
-        $assignedDoctorIds = Auth::user()->doctors()->pluck('doctor_id');
+        // Sécurité : Vérifier l'appartenance avant modification
+        $assignedDoctorUserIds = DB::table('doctor_secretary')
+            ->where('secretary_id', Auth::id())
+            ->pluck('doctor_id')
+            ->toArray();
         
-        if (! $assignedDoctorIds->contains($appointment->doctor_id)) {
-            return redirect()->back()->with('error', 'Vous n\'êtes pas autorisée à gérer les rendez-vous de ce médecin.');
+        if (!in_array($appointment->doctor_id, $assignedDoctorUserIds)) {
+            return redirect()->back()->with('error', 'Action non autorisée.');
         }
 
-        // 3. MISE À JOUR DU RENDEZ-VOUS
         $appointment->update([
             'status' => $request->status,
             'cancel_reason' => $request->status === 'cancelled' ? $request->cancel_reason : null,
             'secretary_id' => Auth::id(),
         ]);
 
-        // 4. ENVOI DE LA NOTIFICATION PAR EMAIL
         if ($appointment->patient && $appointment->patient->user) {
             $appointment->patient->user->notify(new AppointmentStatusUpdated($appointment));
         }
 
-        // 5. RETOUR AVEC MESSAGE FLASH
-        return redirect()->back()->with('success', 'Le statut a été mis à jour et le patient a été averti.');
+        return redirect()->back()->with('success', 'Statut mis à jour avec succès.');
     }
 }
