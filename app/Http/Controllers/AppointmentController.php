@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Auth;
 
 class AppointmentController extends Controller
 {
-    /**
-     * Liste des rendez-vous pour une clinique spécifique.
-     */
     public function index(Clinic $clinic)
     {
         return Inertia::render('Clinics/Appointments/Index', [
@@ -27,9 +24,6 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /**
-     * Formulaire de création de rendez-vous (Vue Patient).
-     */
     public function create()
     {
         return Inertia::render('Clinics/Appointments/Create', [
@@ -39,9 +33,6 @@ class AppointmentController extends Controller
         ]);
     }
 
-    /**
-     * API interne pour filtrer les médecins par clinique et service.
-     */
     public function getDoctorsByCriteria(Request $request)
     {
         $request->validate([
@@ -57,9 +48,6 @@ class AppointmentController extends Controller
         return response()->json($doctors);
     }
 
-    /**
-     * Enregistrement du rendez-vous.
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -90,21 +78,18 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Mise à jour du statut par la secrétaire ou le médecin.
+     * Correction ici : Ajout du paramètre Clinic pour correspondre à la route
      */
-    public function updateStatus(Request $request, Appointment $appointment)
+    public function updateStatus(Request $request, Clinic $clinic, Appointment $appointment)
     {
-        // Validation stricte du statut envoyé par le bouton (vert/rouge)
         $request->validate([
             'status' => 'required|in:pending,confirmed,cancelled,completed',
             'cancel_reason' => 'nullable|string'
         ]);
 
-        // Mise à jour : On utilise le statut envoyé ('confirmed' pour le bouton vert)
         $appointment->update([
             'status' => $request->status,
             'cancel_reason' => $request->cancel_reason,
-            // On sauvegarde l'ID de l'utilisateur qui valide, sans forcer la relation secretary
             'updated_by' => Auth::id() 
         ]);
 
@@ -113,9 +98,6 @@ class AppointmentController extends Controller
         return redirect()->back()->with('success', $msg);
     }
 
-    /**
-     * Génération du ticket PDF.
-     */
     public function downloadTicket(Appointment $appointment)
     {
         $appointment->load(['doctor.user', 'patient.user', 'service', 'clinic']);

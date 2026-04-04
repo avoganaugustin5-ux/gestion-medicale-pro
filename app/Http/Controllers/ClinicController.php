@@ -17,15 +17,12 @@ class ClinicController extends Controller
     public function index(Request $request)
     {
         $user = User::with(['patient', 'clinic'])->find(Auth::id());
-        $search = $request->input('search');
         $role = strtolower($user->role ?? 'guest');
         $today = now()->toDateString();
 
         $clinicsQuery = Clinic::query();
         if ($role === 'admin') {
-            $clinicsQuery->when($search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
-            });
+            $clinicsQuery->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"));
         } elseif (in_array($role, ['secretaire', 'medecin'])) {
             $clinicsQuery->where('id', $user->clinic_id);
         }
@@ -34,53 +31,30 @@ class ClinicController extends Controller
         $appointmentsQuery = Appointment::with(['patient.user', 'doctor.user', 'clinic', 'service']);
 
         if ($role === 'admin') {
-            $stats = [
-                'total_clinics' => Clinic::count(),
-                'total_users' => User::count(),
-                'total_appointments' => Appointment::count(),
-                'today_appointments' => Appointment::whereDate('appointment_date', $today)->count(),
-            ];
+            $statsCount = Appointment::query();
         } 
         elseif ($role === 'secretaire') {
-            // On cherche les médecins rattachés
-            $assignedDoctorUserIds = DB::table('doctor_secretary')
-                ->where('secretary_id', $user->id)
-                ->pluck('doctor_id')
-                ->toArray();
-
             $appointmentsQuery->where('clinic_id', $user->clinic_id)
                               ->where('status', 'pending');
-
-            // Si le secrétaire a des médecins rattachés, on filtre. 
-            // SINON (cas de Raïnatou), on montre tout ce qui appartient à la clinique.
-            if (!empty($assignedDoctorUserIds)) {
-                $appointmentsQuery->whereIn('doctor_id', $assignedDoctorUserIds);
-                $statsCount = Appointment::where('clinic_id', $user->clinic_id)
-                    ->whereIn('doctor_id', $assignedDoctorUserIds);
-            } else {
-                $statsCount = Appointment::where('clinic_id', $user->clinic_id);
-            }
-
-            $stats = [
-                'today_appointments' => (clone $statsCount)->whereDate('appointment_date', $today)->count(),
-                'total_patients' => (clone $statsCount)->distinct('patient_id')->count(),
-            ];
+            $statsCount = Appointment::where('clinic_id', $user->clinic_id);
         } 
         elseif ($role === 'medecin') {
             $appointmentsQuery->where('clinic_id', $user->clinic_id)
                               ->where('doctor_id', $user->id);
-            
-            $stats = [
-                'today_appointments' => Appointment::where('doctor_id', $user->id)
-                    ->whereDate('appointment_date', $today)->count(),
-                'total_patients' => Appointment::where('doctor_id', $user->id)
-                    ->distinct('patient_id')->count(),
-            ];
+            $statsCount = Appointment::where('doctor_id', $user->id);
         }
         else { // Patient
             $appointmentsQuery->where('patient_id', $user->patient?->id);
-            $stats = ['today_appointments' => 0, 'total_patients' => 0];
+            $statsCount = Appointment::where('patient_id', $user->patient?->id);
         }
+
+        $stats = [
+            'total_clinics' => Clinic::count(),
+            'total_users' => User::count(),
+            'total_appointments' => (clone $statsCount)->count(),
+            'today_appointments' => (clone $statsCount)->whereDate('appointment_date', $today)->count(),
+            'total_patients' => (clone $statsCount)->distinct('patient_id')->count(),
+        ];
 
         $appointments = $appointmentsQuery->latest()->take(10)->get();
 
@@ -98,7 +72,6 @@ class ClinicController extends Controller
             'appointments' => $appointments,
             'activities' => $activities,
             'stats' => $stats,
-            'filters' => $request->only(['search']),
             'userRole' => $role,
             'patient' => $user->patient ?? null,
         ]);
@@ -110,7 +83,15 @@ class ClinicController extends Controller
     {
         $request->validate(['name' => 'required|string|max:255', 'description' => 'nullable|string|max:5000']);
         $clinic = Clinic::create(['name' => $request->name, 'description' => $request->description, 'user_id' => Auth::id()]);
-        ActivityLog::create(['user_id' => Auth::id(), 'user_name' => Auth::user()->name, 'action' => 'Création', 'target' => 'Clinique: ' . $clinic->name, 'clinic_name' => 'Administration Centrale']);
+        
+        ActivityLog::create([
+            'user_id' => Auth::id(), 
+            'user_name' => Auth::user()->name, 
+            'action' => 'Création', 
+            'target' => 'Clinique: ' . $clinic->name, 
+            'clinic_name' => 'Administration Centrale'
+        ]);
+        
         return redirect()->route('dashboard')->with('success', 'La clinique a été créée avec succès !');
     }
 
@@ -122,8 +103,15 @@ class ClinicController extends Controller
 
         return Inertia::render('Clinics/Show', [
             'clinic' => $clinic,
-            'staff' => $clinic->users()->whereIn('role', ['medecin', 'secretaire'])->when($request->search, function ($q, $s) { $q->where('name', 'like', "%{$s}%"); })->get(),
-            'stats' => ['patients_count' => $clinic->patients()->count(), 'doctors_count' => $clinic->users()->where('role', 'medecin')->count(), 'appointments_today' => $clinic->appointments()->whereDate('appointment_date', now()->toDateString())->count()],
+            'staff' => $clinic->users()
+                ->whereIn('role', ['medecin', 'secretaire'])
+                ->when($request->search, function ($q, $s) { $q->where('name', 'like', "%{$s}%"); })
+                ->get(),
+            'stats' => [
+                'patients_count' => $clinic->patients()->count(), 
+                'doctors_count' => $clinic->users()->where('role', 'medecin')->count(), 
+                'appointments_today' => $clinic->appointments()->whereDate('appointment_date', now()->toDateString())->count()
+            ],
             'filters' => $request->only(['search']),
         ]);
     }
@@ -137,5 +125,9 @@ class ClinicController extends Controller
         return redirect()->route('dashboard')->with('success', 'Clinique mise à jour.');
     }
 
-    public function destroy(Clinic $clinic) { $clinic->delete(); return redirect()->route('dashboard')->with('success', 'Clinique supprimée.'); }
+    public function destroy(Clinic $clinic) 
+    { 
+        $clinic->delete(); 
+        return redirect()->route('dashboard')->with('success', 'Clinique supprimée.'); 
+    }
 }

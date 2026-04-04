@@ -1,14 +1,20 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps({
     appointments: Array,
-    clinic: Object // Ajouté pour la route
+    clinic: Object
 });
 
 const form = useForm({
     status: '',
     cancel_reason: ''
+});
+
+// Sécurité pour récupérer l'ID de la clinique
+const clinicId = computed(() => {
+    return props.clinic?.id || props.appointments[0]?.clinic_id;
 });
 
 const changeStatus = (id, newStatus) => {
@@ -20,11 +26,16 @@ const changeStatus = (id, newStatus) => {
     if (confirm(`Confirmer cette action ?`)) {
         form.status = newStatus;
         form.cancel_reason = reason;
-        // CORRECTION DE LA ROUTE ICI
+        
         form.patch(route('clinics.appointments.updateStatus', { 
-            clinic: props.clinic.id, 
+            clinic: clinicId.value, 
             appointment: id 
-        }));
+        }), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Optionnel : un petit feedback visuel si besoin
+            }
+        });
     }
 };
 </script>
